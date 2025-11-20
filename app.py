@@ -19,28 +19,34 @@ st.markdown(hide_st_style, unsafe_allow_html=True)
 def check_password():
     """Returns `True` if the user had a correct password."""
 
-    def password_entered():
-        """Checks whether a password entered by the user is correct."""
-        if st.session_state["username"] in st.secrets["passwords"] and \
-           st.session_state["password"] == st.secrets["passwords"][st.session_state["username"]]:
-            st.session_state["password_correct"] = True
-            del st.session_state["password"]  # Don't store password
-        else:
-            st.session_state["password_correct"] = False
-
+    # Initialize session state for login if it doesn't exist
     if "password_correct" not in st.session_state:
-        # First run, show inputs
-        st.text_input("Username", key="username")
-        st.text_input("Password", type="password", on_change=password_entered, key="password")
+        st.session_state["password_correct"] = False
+
+    # If not logged in, show the login form
+    if not st.session_state["password_correct"]:
+        st.header("🔒 Private Access")
+        st.write("Please log in to use the AI Tool.")
+        
+        # Inputs
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        
+        # THE LOGIN BUTTON
+        if st.button("Log In"):
+            # Check against Secrets
+            if username in st.secrets["passwords"] and st.secrets["passwords"][username] == password:
+                st.session_state["password_correct"] = True
+                st.session_state["user"] = username
+                st.success("Login successful! Loading...")
+                time.sleep(1)
+                st.rerun()  # Force reload to show the app
+            else:
+                st.error("😕 User not found or password incorrect")
         return False
-    elif not st.session_state["password_correct"]:
-        # Password incorrect, show input + error
-        st.text_input("Username", key="username")
-        st.text_input("Password", type="password", on_change=password_entered, key="password")
-        st.error("😕 User not found or password incorrect")
-        return False
+    
+    # If logged in, return True
     else:
-        # Password correct
         return True
 
 # --- MAIN APP FLOW ---
@@ -52,8 +58,14 @@ if check_password():
         api_key = st.text_input("Enter API Key", type="password")
 
     # --- THE TOOL UI ---
+    # Logout Button in Sidebar
+    with st.sidebar:
+        st.write(f"👤 Logged in as: **{st.session_state['user']}**")
+        if st.button("Log Out"):
+            st.session_state["password_correct"] = False
+            st.rerun()
+
     st.title("✨ AI Review Responder")
-    st.success(f"✅ Logged in as: {st.session_state['username']}")
     st.write("Paste the customer review below.")
 
     user_review = st.text_area("Customer Review:", height=150, placeholder="Paste the review here...")
