@@ -95,6 +95,12 @@ if check_password():
         location = st.text_input("Location", value=client_data["location"])
         services = st.text_input("Key Services/Amenities", value=client_data["services"])
         manager_name = st.text_input("Sign-off Name", value=client_data["owner"])
+
+        manager_name = st.text_input("Sign-off Name", value=client_data["owner"])
+        
+        # NEW CODE: Visual confirmation
+        if hotel_name:
+            st.success("✅ Profile Active!")
         
         st.divider()
         if st.button("Log Out"):
