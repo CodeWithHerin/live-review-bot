@@ -8,7 +8,6 @@ from datetime import datetime
 st.set_page_config(page_title="Review Reply Pro", page_icon="💎", layout="wide")
 
 # --- HIDE BRANDING ---
-# --- HIDE BRANDING ---
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
@@ -16,8 +15,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- AGENCY MEMORY (The "Database") ---
-# EDIT THIS: Add your paying clients here to save time!
+# --- AGENCY MEMORY (Database) ---
 CLIENT_PRESETS = {
     "Manual Entry": {
         "name": "", 
@@ -39,7 +37,7 @@ CLIENT_PRESETS = {
     }
 }
 
-# --- SESSION STATE SETUP ---
+# --- SESSION STATE ---
 if "history" not in st.session_state:
     st.session_state["history"] = []
 
@@ -83,25 +81,19 @@ if check_password():
         st.divider()
         
         st.subheader("📂 Load Client Profile")
-        # Dropdown to pick a client
         selected_client = st.selectbox("Select Client:", list(CLIENT_PRESETS.keys()))
-        
-        # Get data for that client
         client_data = CLIENT_PRESETS[selected_client]
 
         st.subheader("🏨 Business Details")
-        # We use key= to allowing manual editing even after loading a preset
-        hotel_name = st.text_input("Business Name", value=client_data["name"])
-        location = st.text_input("Location", value=client_data["location"])
-        services = st.text_input("Key Services/Amenities", value=client_data["services"])
-        manager_name = st.text_input("Sign-off Name", value=client_data["owner"])
-
-        manager_name = st.text_input("Sign-off Name", value=client_data["owner"])
+        # Added 'key' parameters to prevent DuplicateId Error
+        hotel_name = st.text_input("Business Name", value=client_data["name"], key="input_hotel")
+        location = st.text_input("Location", value=client_data["location"], key="input_loc")
+        services = st.text_input("Key Services", value=client_data["services"], key="input_srv")
+        manager_name = st.text_input("Sign-off Name", value=client_data["owner"], key="input_mgr")
         
-        # NEW CODE: Visual confirmation
         if hotel_name:
             st.success("✅ Profile Active!")
-        
+            
         st.divider()
         if st.button("Log Out"):
             st.session_state["password_correct"] = False
@@ -128,7 +120,6 @@ if check_password():
                 genai.configure(api_key=api_key)
                 model = genai.GenerativeModel('gemini-2.5-flash')
                 
-                # HYPER-PERSONALIZED PROMPT
                 prompt = f"""
                 You are the owner/manager of {hotel_name}.
                 Your name is {manager_name}.
@@ -141,7 +132,7 @@ if check_password():
                 Language: {lang}
                 
                 Rules:
-                1. If the review is positive, mention our location ({location}) and invite them to try our services ({services}).
+                1. If positive, mention location ({location}) and services ({services}).
                 2. If negative, be polite and address the issue.
                 3. Sign off with {hotel_name} and {manager_name}.
                 4. Output ONLY the reply text.
@@ -154,7 +145,6 @@ if check_password():
                     st.success("Draft Ready (Click top-right of box to Copy):")
                     st.code(reply_text, language=None)
                     
-                    # HISTORY LOGGING
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
                     st.session_state["history"].append({
                         "Client": hotel_name,
@@ -167,7 +157,7 @@ if check_password():
             except Exception as e:
                 st.error(f"Error: {str(e)}")
 
-    # 4. HISTORY & EXPORT
+    # 4. HISTORY
     st.divider()
     st.subheader("📜 Session History")
     if len(st.session_state["history"]) > 0:
