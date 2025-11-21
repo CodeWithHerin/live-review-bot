@@ -1,6 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
-import pandas as pd # Used for Excel/CSV handling
+import pandas as pd
 import time
 from datetime import datetime
 
@@ -16,10 +16,32 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- SESSION STATE SETUP (The Brain) ---
-# We use this to remember data while the app runs
+# --- AGENCY MEMORY (The "Database") ---
+# EDIT THIS: Add your paying clients here to save time!
+CLIENT_PRESETS = {
+    "Manual Entry": {
+        "name": "", 
+        "location": "", 
+        "services": "", 
+        "owner": ""
+    },
+    "Ocean Paradise Goa": {
+        "name": "Ocean Paradise Resort", 
+        "location": "Calangute Beach, Goa", 
+        "services": "Infinity Pool, Beach Bar, Free Breakfast", 
+        "owner": "Mr. Verma"
+    },
+    "Mountain View Manali": {
+        "name": "Mountain View Cottage", 
+        "location": "Old Manali", 
+        "services": "Bonfire, Trekking Guide, Home-cooked Food", 
+        "owner": "Simran"
+    }
+}
+
+# --- SESSION STATE SETUP ---
 if "history" not in st.session_state:
-    st.session_state["history"] = [] # List to store past replies
+    st.session_state["history"] = []
 
 if "total_usage" not in st.session_state:
     st.session_state["total_usage"] = 0
@@ -30,10 +52,9 @@ def check_password():
         st.session_state["password_correct"] = False
 
     if not st.session_state["password_correct"]:
-        # Centered Login Box
         col1, col2, col3 = st.columns([1,2,1])
         with col2:
-            st.header("💎 Private Access")
+            st.header("💎 Agency Login")
             username = st.text_input("Username")
             password = st.text_input("Password", type="password")
             
@@ -50,42 +71,47 @@ def check_password():
 # --- MAIN APP ---
 if check_password():
     
-    # 1. API KEY SETUP
+    # 1. API KEY
     if "GEMINI_API_KEY" in st.secrets:
         api_key = st.secrets["GEMINI_API_KEY"]
     else:
         api_key = st.text_input("Enter API Key", type="password")
 
-    # 2. SIDEBAR (Brand Voice & Admin)
+    # 2. SIDEBAR (Agency Mode)
     with st.sidebar:
-        st.write(f"👤 User: **{st.session_state['user']}**")
+        st.success(f"👤 Agent: {st.session_state['user']}")
+        st.divider()
+        
+        st.subheader("📂 Load Client Profile")
+        # Dropdown to pick a client
+        selected_client = st.selectbox("Select Client:", list(CLIENT_PRESETS.keys()))
+        
+        # Get data for that client
+        client_data = CLIENT_PRESETS[selected_client]
+
+        st.subheader("🏨 Business Details")
+        # We use key= to allowing manual editing even after loading a preset
+        hotel_name = st.text_input("Business Name", value=client_data["name"])
+        location = st.text_input("Location", value=client_data["location"])
+        services = st.text_input("Key Services/Amenities", value=client_data["services"])
+        manager_name = st.text_input("Sign-off Name", value=client_data["owner"])
         
         st.divider()
-        st.subheader("🏨 Brand Settings")
-        hotel_name = st.text_input("Hotel Name", placeholder="e.g., Ocean View Resort")
-        manager_name = st.text_input("Sign-off Name", placeholder="e.g., Rahul, Manager")
-        
-        st.divider()
-        # ADMIN PANEL (Only visible if you log in as 'admin')
-        if st.session_state["user"] == "admin":
-            st.error("🕵️ ADMIN PANEL")
-            st.write(f"Total Replies Generated: {st.session_state['total_usage']}")
-            
         if st.button("Log Out"):
             st.session_state["password_correct"] = False
             st.rerun()
 
     # 3. MAIN INTERFACE
-    st.title("💎 AI Review Responder Pro")
-    st.markdown("Generate professional replies in seconds. **History is saved below.**")
+    st.title("💎 Agency Review Responder")
+    st.markdown(f"Drafting replies for: **{hotel_name if hotel_name else 'Unknown Business'}**")
 
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        user_review = st.text_area("Paste Customer Review:", height=150)
+        user_review = st.text_area("Paste Customer Review:", height=200)
     
     with col2:
-        tone = st.selectbox("Reply Tone:", ["Professional", "Warm & Friendly", "Apologetic", "Short"])
+        tone = st.selectbox("Tone:", ["Professional", "Warm & Personal", "Apologetic", "Short"])
         lang = st.selectbox("Language:", ["English", "Hindi", "Gujarati", "Hinglish"])
 
     if st.button("✨ Generate Magic Reply"):
@@ -96,62 +122,50 @@ if check_password():
                 genai.configure(api_key=api_key)
                 model = genai.GenerativeModel('gemini-2.5-flash')
                 
-                # ADVANCED PROMPT with Brand Memory
+                # HYPER-PERSONALIZED PROMPT
                 prompt = f"""
-                You are the manager of {hotel_name if hotel_name else 'a hotel'}.
-                Your name is {manager_name if manager_name else 'The Management'}.
-                
+                You are the owner/manager of {hotel_name}.
+                Your name is {manager_name}.
+                Your business is located in {location}.
+                You offer these services: {services}.
+
                 Write a reply to this review: "{user_review}"
                 
                 Tone: {tone}
                 Language: {lang}
-                Structure:
-                1. Thank them.
-                2. Address specific points in the review.
+                
+                Rules:
+                1. If the review is positive, mention our location ({location}) and invite them to try our services ({services}).
+                2. If negative, be polite and address the issue.
                 3. Sign off with {hotel_name} and {manager_name}.
+                4. Output ONLY the reply text.
                 """
                 
-                with st.spinner("Thinking..."):
+                with st.spinner("Consulting the AI..."):
                     response = model.generate_content(prompt)
                     reply_text = response.text
                     
-                    # Show Result
-                    st.success("Draft Ready:")
+                    st.success("Draft Ready (Click top-right of box to Copy):")
                     st.code(reply_text, language=None)
                     
-                    # SAVE TO HISTORY
+                    # HISTORY LOGGING
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
                     st.session_state["history"].append({
+                        "Client": hotel_name,
                         "Date": timestamp,
-                        "User": st.session_state["user"],
-                        "Review": user_review[:50] + "...", # First 50 chars
+                        "Review": user_review[:50] + "...",
                         "Reply": reply_text,
-                        "Tone": tone
+                        "Agent": st.session_state["user"]
                     })
-                    st.session_state["total_usage"] += 1
 
             except Exception as e:
                 st.error(f"Error: {str(e)}")
 
-    # 4. HISTORY & EXPORT SECTION
+    # 4. HISTORY & EXPORT
     st.divider()
-    st.subheader("📜 Recent Activity History")
-    
+    st.subheader("📜 Session History")
     if len(st.session_state["history"]) > 0:
-        # Convert list to a Pandas Dataframe (Table)
         df = pd.DataFrame(st.session_state["history"])
-        
-        # Show the table
         st.dataframe(df, use_container_width=True)
-        
-        # Create CSV for download
         csv = df.to_csv(index=False).encode('utf-8-sig')
-        
-        st.download_button(
-            label="📥 Download History (CSV)",
-            data=csv,
-            file_name='review_history.csv',
-            mime='text/csv',
-        )
-    else:
-        st.info("No replies generated in this session yet.")
+        st.download_button("📥 Download Report (CSV)", data=csv, file_name='agency_report.csv', mime='text/csv')
