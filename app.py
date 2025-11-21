@@ -145,7 +145,7 @@ if check_password():
         st.dataframe(df, use_container_width=True)
         
         # Create CSV for download
-        csv = df.to_csv(index=False).encode('utf-8')
+        csv = df.to_csv(index=False).encode('utf-8-sig')
         
         st.download_button(
             label="📥 Download History (CSV)",
