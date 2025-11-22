@@ -11,26 +11,11 @@ st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    
-    /* 1. TARGET ONLY THE PRIMARY BUTTON (The Generate Button) */
     div.stButton > button[kind="primary"] {
-        background-color: #2E7D32; /* Professional Dark Green */
-        color: white;
-        border: none;
-        border-radius: 6px;
-        font-weight: 600;
+        background-color: #2E7D32; color: white; border: none; border-radius: 6px; font-weight: 600;
     }
-    div.stButton > button[kind="primary"]:hover {
-        background-color: #1B5E20; /* Darker on hover */
-    }
-
-    /* 2. STYLE SECONDARY BUTTONS (Shorten, Empathy, History) */
-    /* Makes them look cleaner and less distracting */
-    div.stButton > button[kind="secondary"] {
-        border: 1px solid #555; /* Subtle border */
-        color: #eee;
-        border-radius: 6px;
-    }
+    div.stButton > button[kind="primary"]:hover { background-color: #1B5E20; }
+    div.stButton > button[kind="secondary"] { border: 1px solid #555; color: #eee; border-radius: 6px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -76,7 +61,7 @@ def check_password():
             st.header("💎 Smart Agency Login")
             username = st.text_input("Username")
             password = st.text_input("Password", type="password")
-            if st.button("Log In", type="primary"): # Made this primary too for better UX
+            if st.button("Log In", type="primary"):
                 if username in st.secrets["passwords"] and st.secrets["passwords"][username] == password:
                     st.session_state["password_correct"] = True
                     st.session_state["user"] = username
@@ -115,7 +100,7 @@ if check_password():
         
         st.divider()
         st.subheader("🎨 Brand Voice")
-        brand_voice = st.text_area("Describe Tone", value="Professional, Warm, and Helpful")
+        brand_voice = st.text_area("Describe Tone", value="Professional but conversational. Warm, like a real person talking.", height=100)
         
         if hotel_name: st.caption("✅ Profile Active")
         if st.button("Log Out"):
@@ -128,19 +113,15 @@ if check_password():
 
     user_review = st.text_area("Paste Customer Review:", height=150)
 
-    # ACTION BUTTONS - ONLY GENERATE IS GREEN NOW
     col1, col2, col3 = st.columns(3)
     with col1:
-        # type="primary" triggers the GREEN CSS
         generate_btn = st.button("✨ Generate Reply", type="primary", use_container_width=True)
     with col2:
-        # Default type triggers the NEUTRAL CSS
-        shorten_btn = st.button("✂️ Shorten Text", use_container_width=True)
+        shorten_btn = st.button("✂️ Make Conciser", use_container_width=True)
     with col3:
-        # Default type triggers the NEUTRAL CSS
-        elaborate_btn = st.button("✍️ Add Empathy", use_container_width=True)
+        elaborate_btn = st.button("✍️ Add Detail (Polite)", use_container_width=True)
 
-    # 4. LOGIC
+    # 4. LOGIC - THE HUMAN TOUCH UPDATE
     if generate_btn or shorten_btn or elaborate_btn:
         if not user_review:
             st.warning("Please paste a review first.")
@@ -149,23 +130,29 @@ if check_password():
                 genai.configure(api_key=api_key)
                 model = genai.GenerativeModel('gemini-2.5-flash')
 
+                # --- THE HUMANIZER PROMPT ---
                 base_instruction = f"""
-                Role: You are {manager_name}, manager of {hotel_name} in {location}.
+                Role: You are {manager_name}, the manager of {hotel_name} in {location}.
                 Services: {services}.
                 Brand Voice: {brand_voice}.
-                Task: Reply to this review: "{user_review}"
                 
-                CRITICAL RULES:
-                1. Detect the language of the review and REPLY IN THE SAME LANGUAGE.
-                2. If negative, be apologetic. If positive, be thankful.
+                Task: Write a reply to this review: "{user_review}"
+                
+                CRITICAL "HUMAN" RULES:
+                1. **Sound Natural:** Use contractions (e.g., "I'm" instead of "I am", "We're" instead of "We are").
+                2. **No Robot Speak:** NEVER use phrases like "We hope this message finds you well," "We strive for excellence," or "We understand your frustration."
+                3. **Be Specific:** Reference a specific detail from their review so they know a human read it.
+                4. **Length:** Keep it tight (3-4 sentences max). Get to the point.
+                5. **Sign-off:** Just "- {manager_name}" (Don't write "Sincerely" or "Best Regards").
+                
+                Language Rule: Detect the review language and reply in the SAME language.
                 """
 
                 if shorten_btn:
-                    base_instruction += "\nCONSTRAINT: Keep it under 40 words."
+                    base_instruction += "\nCONSTRAINT: Maximum 2 sentences. Very direct and punchy."
                 if elaborate_btn:
-                    base_instruction += "\nCONSTRAINT: Be highly empathetic and detailed."
+                    base_instruction += "\nCONSTRAINT: Be warmer and slightly more detailed, but keep the natural tone."
 
-                # Updated Loading Text
                 with st.spinner("Consulting Brand Guidelines..."):
                     response = model.generate_content(base_instruction)
                     reply = response.text
@@ -182,17 +169,15 @@ if check_password():
             except Exception as e:
                 st.error(f"Error: {str(e)}")
 
-    # 5. DISPLAY RESULT
+    # 5. DISPLAY
     if st.session_state["current_reply"]:
         st.divider()
-        
         if st.session_state["analysis"]:
             st.info(f"📊 Analysis: **{st.session_state['analysis']}**")
 
         st.subheader("Draft Reply:")
         st.code(st.session_state["current_reply"], language=None)
         
-        # Save button is also Neutral (Professional)
         if st.button("💾 Save to History"):
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
             st.session_state["history"].append({
