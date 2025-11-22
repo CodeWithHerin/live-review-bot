@@ -8,25 +8,32 @@ import time
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Review Reply Pro", page_icon="💎", layout="wide")
 
-# --- ADVANCED STYLING (SURGICAL REMOVAL) ---
+# --- ADVANCED STYLING (TOTAL CLUTTER REMOVAL) ---
 st.markdown("""
     <style>
-    /* 1. Hide Top Right Menu (Hamburger) & Footer */
+    /* 1. Hide Main Menu (Hamburger) & Footer */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     
-    /* 2. Hide 'Manage App' Button */
+    /* 2. Hide Toolbar (Top Right Share/Star/Github) */
+    [data-testid="stToolbar"] {
+        visibility: hidden; 
+        height: 0%;
+    }
+    
+    /* 3. Hide Header Decoration (Colored Line) */
+    header[data-testid="stHeader"] {
+        background-color: transparent;
+        z-index: 1; /* Keep sidebar toggle visible */
+    }
+    
+    /* 4. Hide Bottom 'Manage App' & Status Widget */
     .stAppDeployButton {display: none;}
     [data-testid="stStatusWidget"] {visibility: hidden;}
     
-    /* 3. Fix Header to Show Sidebar Toggle but Hide Decoration */
-    header[data-testid="stHeader"] {
-        background-color: transparent;
-    }
-    
-    /* 4. Adjust Padding */
+    /* 5. Adjust Layout Padding (Fix Login Heading Position) */
     .block-container {
-        padding-top: 3rem !important;
+        padding-top: 3rem !important; /* Comfortable spacing from top */
         padding-bottom: 1rem !important;
     }
     
@@ -113,7 +120,7 @@ def check_password():
     if not st.session_state["password_correct"]:
         col1, col2, col3 = st.columns([1,2,1])
         with col2:
-            st.markdown("<br><br>", unsafe_allow_html=True) # Double spacing fix
+            st.markdown("<br>", unsafe_allow_html=True) # Simple spacing
             st.header("💎 Smart Agency Login")
             username = st.text_input("Username")
             password = st.text_input("Password", type="password")
