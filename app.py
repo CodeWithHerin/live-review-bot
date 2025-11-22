@@ -92,7 +92,7 @@ if check_password():
         manager_name = st.text_input("Sign-off Name", key="mgr", placeholder="e.g. The Manager")
         st.divider()
         st.subheader("🎨 Brand Voice")
-        brand_voice = st.text_area("Describe Tone", value="Professional, Warm, and Concise")
+        brand_voice = st.text_area("Describe Tone", value="Professional but conversational. Warm, like a real person talking.")
         if hotel_name: st.caption("✅ Profile Active")
         if st.button("Log Out"):
             st.session_state["password_correct"] = False
@@ -121,60 +121,59 @@ if check_password():
             try:
                 genai.configure(api_key=api_key)
                 
-                # --- SAFETY SETTINGS (Allow everything) ---
-                # This prevents the AI from blocking "bad" reviews
-                safety_settings = [
-                    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-                    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-                    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-                    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-                ]
-
-                # --- MODEL CONFIG ---
-                # Increased Token Limit to 500 to prevent "Finish Reason 2" error
-                model = genai.GenerativeModel(
-                    'gemini-2.5-flash', 
-                    generation_config={"temperature": 0.7, "max_output_tokens": 500},
-                    safety_settings=safety_settings
-                )
+                # --- FIX 1: INCREASE TOKEN LIMIT TO 1000 ---
+                # This ensures finish_reason is never 2 (Max Tokens)
+                model = genai.GenerativeModel('gemini-2.5-flash', 
+                    generation_config={"temperature": 0.7, "max_output_tokens": 1000})
                 
                 safe_mgr = manager_name if manager_name else "The Management"
                 
-                base_context = f"You are {safe_mgr}, manager of {hotel_name} in {location}. Services: {services}. Voice: {brand_voice}. The customer wrote: '{user_review}'"
+                context = f"""
+                You are {safe_mgr}, manager of {hotel_name} in {location}. 
+                Services: {services}. Tone: {brand_voice}.
+                Customer Review: "{user_review}"
+                """
                 
                 if shorten_btn:
                     st.session_state["last_action"] = "short" 
                     prompt = f"""
-                    {base_context}
-                    TASK: Write a direct, punchy reply (max 2 sentences).
-                    RULES: No fluff. Address the main point immediately. Use 1 relevant emoji.
-                    Match language of review.
-                    ALWAYS END WITH: "\n\n- {safe_mgr}"
+                    {context}
+                    TASK: Write a punchy reply (1-2 sentences).
+                    RULES: No fluff. Address point. 1 Emoji. Match Language.
+                    SIGN-OFF: "- {safe_mgr}"
                     """
                 elif elaborate_btn:
                     st.session_state["last_action"] = "long"
                     prompt = f"""
-                    {base_context}
-                    TASK: Write a warm, empathetic reply (4-5 sentences).
-                    RULES: Validate their feelings. Explain our side gently. Invite them back. Use 2 emojis.
-                    Match language of review.
-                    ALWAYS END WITH: "\n\n- {safe_mgr}"
+                    {context}
+                    TASK: Write a detailed, empathetic reply (4-5 sentences).
+                    RULES: Validate feelings. Explain gently. 2 Emojis. Match Language.
+                    SIGN-OFF: "- {safe_mgr}"
                     """
                 else:
                     st.session_state["last_action"] = "std"
                     prompt = f"""
-                    {base_context}
+                    {context}
                     TASK: Write a balanced professional reply (3 sentences).
-                    RULES: Acknowledge -> Address -> Close. Sound natural. Use 1 emoji.
-                    Match language of review.
-                    ALWAYS END WITH: "\n\n- {safe_mgr}"
+                    RULES: Natural tone. 'I' not 'We'. 1 Emoji. Match Language.
+                    SIGN-OFF: "- {safe_mgr}"
                     """
 
-                with st.spinner("Drafting..."):
+                with st.spinner("Consulting Brand Guidelines..."):
                     response = model.generate_content(prompt)
-                    st.session_state["current_reply"] = response.text
                     
-                    if generate_btn:
+                    # --- FIX 2: SAFE TEXT EXTRACTION ---
+                    # Sometimes AI stops early. We check for parts before crashing.
+                    if response.parts:
+                        st.session_state["current_reply"] = response.text
+                    elif response.finish_reason == 2:
+                         # If it ran out of tokens but has some text, try to salvage it
+                         # If completely empty, show error
+                         st.warning("⚠️ Reply was cut off. Please try generating again.")
+                    else:
+                        st.session_state["current_reply"] = "Error: AI returned no text. Please try again."
+                    
+                    if generate_btn and response.parts:
                         analysis_prompt = f"Analyze review: '{user_review}'. Return string: Sentiment | Category"
                         analysis = model.generate_content(analysis_prompt).text
                         st.session_state["analysis"] = analysis
@@ -189,7 +188,6 @@ if check_password():
 
         st.subheader("Draft Reply:")
         
-        # Dynamic key ensures fresh text box
         unique_key = f"box_{st.session_state['last_action']}_{datetime.now().strftime('%H%M%S')}"
         
         st.text_area("Copy or Edit:", value=st.session_state["current_reply"], height=150, key=unique_key)
