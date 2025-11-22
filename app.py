@@ -44,7 +44,7 @@ if "current_reply" not in st.session_state: st.session_state["current_reply"] = 
 if "analysis" not in st.session_state: st.session_state["analysis"] = None
 if "last_action" not in st.session_state: st.session_state["last_action"] = None
 
-# --- HELPER FUNCTIONS ---
+# --- HELPERS ---
 def clear_text_box():
     """Forces the text box to reset so new text appears instantly"""
     if "final_output_box" in st.session_state: 
@@ -125,17 +125,20 @@ if check_password():
             try:
                 genai.configure(api_key=api_key)
                 
-                # --- SWITCH TO STABLE MODEL (1.5 Flash) ---
-                # Max Tokens 2048 = Impossible to cut off
+                # --- UPGRADE TO GEMINI 2.5 FLASH ---
+                # Max Tokens 1000 is safe for 2.5
+                # Safety settings to BLOCK_NONE to avoid false positives
                 safety_settings = [
                     {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
                     {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
                     {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
                     {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
                 ]
+                
+                # Using 'gemini-2.5-flash' specifically
                 model = genai.GenerativeModel(
-                    'gemini-1.5-flash', 
-                    generation_config={"temperature": 0.8, "max_output_tokens": 2048},
+                    'gemini-2.5-flash', 
+                    generation_config={"temperature": 0.7, "max_output_tokens": 1000},
                     safety_settings=safety_settings
                 )
                 
@@ -171,7 +174,7 @@ if check_password():
                 with st.spinner("Consulting Brand Guidelines..."):
                     response = model.generate_content(prompt)
                     
-                    # Safe Extraction
+                    # Safe Extraction Logic
                     final_text = ""
                     if response.candidates:
                         candidate = response.candidates[0]
@@ -200,7 +203,7 @@ if check_password():
 
         st.subheader("Draft Reply:")
         
-        # --- ULTIMATE REFRESH FIX: Use Time.time() for unique key ---
+        # Using time-based key to force refresh
         unique_key = f"box_{st.session_state['last_action']}_{time.time()}"
         
         st.text_area("Copy or Edit:", value=st.session_state["current_reply"], height=150, key=unique_key)
