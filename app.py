@@ -6,11 +6,26 @@ from datetime import datetime
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Review Reply Pro", page_icon="💎", layout="wide")
 
-# --- HIDE BRANDING ---
+# --- CSS HACKS (Green Button & No Branding) ---
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
+    
+    /* FORCE PRIMARY BUTTON TO BE GREEN */
+    div.stButton > button:first-child {
+        background-color: #28a745;
+        color: white;
+        border-radius: 8px;
+        border: none;
+        font-weight: bold;
+    }
+    div.stButton > button:active {
+        background-color: #218838;
+    }
+    div.stButton > button:focus {
+        box-shadow: none;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -32,12 +47,19 @@ CLIENT_PRESETS = {
 }
 
 # --- SESSION STATE ---
-if "history" not in st.session_state:
-    st.session_state["history"] = []
-if "current_reply" not in st.session_state:
-    st.session_state["current_reply"] = ""
-if "analysis" not in st.session_state:
-    st.session_state["analysis"] = None
+if "history" not in st.session_state: st.session_state["history"] = []
+if "current_reply" not in st.session_state: st.session_state["current_reply"] = ""
+if "analysis" not in st.session_state: st.session_state["analysis"] = None
+
+# --- AUTOFILL LOGIC ---
+# This function forces the text boxes to update when dropdown changes
+def update_client_info():
+    selected = st.session_state["selected_client_dropdown"]
+    data = CLIENT_PRESETS[selected]
+    st.session_state["h_name"] = data["name"]
+    st.session_state["loc"] = data["location"]
+    st.session_state["srv"] = data["services"]
+    st.session_state["mgr"] = data["owner"]
 
 # --- LOGIN SYSTEM ---
 def check_password():
@@ -60,12 +82,6 @@ def check_password():
         return False
     return True
 
-# --- HELPER FUNCTIONS ---
-def generate_reply(model, prompt):
-    with st.spinner("🤖 AI is working..."):
-        response = model.generate_content(prompt)
-        return response.text
-
 # --- MAIN APP ---
 if check_password():
     
@@ -81,17 +97,23 @@ if check_password():
         st.divider()
         
         st.subheader("📂 Client Profile")
-        selected_client = st.selectbox("Select Client:", list(CLIENT_PRESETS.keys()))
-        data = CLIENT_PRESETS[selected_client]
+        # The 'on_change' command fixes the autofill bug!
+        selected_client = st.selectbox(
+            "Select Client:", 
+            list(CLIENT_PRESETS.keys()), 
+            key="selected_client_dropdown",
+            on_change=update_client_info
+        )
 
-        hotel_name = st.text_input("Business Name", value=data["name"], key="h_name")
-        location = st.text_input("Location", value=data["location"], key="loc")
-        services = st.text_input("Services", value=data["services"], key="srv")
-        manager_name = st.text_input("Sign-off Name", value=data["owner"], key="mgr")
+        # We use session_state keys to allow both auto-fill AND manual editing
+        hotel_name = st.text_input("Business Name", key="h_name")
+        location = st.text_input("Location", key="loc")
+        services = st.text_input("Services", key="srv")
+        manager_name = st.text_input("Sign-off Name", key="mgr")
         
         st.divider()
         st.subheader("🎨 Brand Voice")
-        brand_voice = st.text_area("Describe Tone", value="Professional, Warm, and Helpful", help="E.g., 'We are funny and casual' or 'Strictly formal'")
+        brand_voice = st.text_area("Describe Tone", value="Professional, Warm, and Helpful")
         
         if hotel_name: st.success("✅ Profile Active")
         if st.button("Log Out"):
@@ -99,18 +121,17 @@ if check_password():
             st.rerun()
 
     # 3. MAIN INTERFACE
-    st.title("💎 Smart Review Responder V4")
+    st.title("💎 Smart Review Responder V4.1")
     st.markdown(f"Drafting for: **{hotel_name if hotel_name else 'Unknown'}**")
 
     user_review = st.text_area("Paste Customer Review:", height=150)
 
     # ACTION BUTTONS
     col1, col2, col3 = st.columns(3)
-    
     with col1:
-        generate_btn = st.button("✨ Generate Reply", type="primary", use_container_width=True)
+        generate_btn = st.button("✨ Generate Reply", use_container_width=True)
     with col2:
-        shorten_btn = st.button("✂️ Make Shorter", use_container_width=True)
+        shorten_btn = st.button("✂️ Shorten Text", use_container_width=True)
     with col3:
         elaborate_btn = st.button("✍️ Add Empathy", use_container_width=True)
 
@@ -138,23 +159,25 @@ if check_password():
 
                 # MODIFIERS
                 if shorten_btn:
-                    base_instruction += "\nCONSTRAINT: Keep the reply under 50 words."
+                    base_instruction += "\nCONSTRAINT: Keep the reply very short and concise (under 40 words)."
                 if elaborate_btn:
-                    base_instruction += "\nCONSTRAINT: Be extra empathetic and explain our commitment to quality."
+                    base_instruction += "\nCONSTRAINT: Focus on empathy and apology. It is okay to be longer."
 
-                # GENERATE
-                reply = generate_reply(model, base_instruction)
-                st.session_state["current_reply"] = reply
-                
-                # ANALYZE (Only on fresh generation)
-                if generate_btn:
-                    analysis_prompt = f"""
-                    Analyze this review: "{user_review}"
-                    Return ONLY a string in this format: Sentiment | Category
-                    Example: Negative | Hygiene Issue
-                    """
-                    analysis = generate_reply(model, analysis_prompt)
-                    st.session_state["analysis"] = analysis
+                # Loading Message Changed
+                with st.spinner("Consulting Brand Guidelines..."):
+                    response = model.generate_content(base_instruction)
+                    reply = response.text
+                    st.session_state["current_reply"] = reply
+                    
+                    # ANALYZE (Only on fresh generation)
+                    if generate_btn:
+                        analysis_prompt = f"""
+                        Analyze this review: "{user_review}"
+                        Return ONLY a string in this format: Sentiment | Category
+                        Example: Negative | Hygiene Issue
+                        """
+                        analysis = model.generate_content(analysis_prompt).text
+                        st.session_state["analysis"] = analysis
 
             except Exception as e:
                 st.error(f"Error: {str(e)}")
@@ -163,14 +186,12 @@ if check_password():
     if st.session_state["current_reply"]:
         st.divider()
         
-        # Analysis Tags
         if st.session_state["analysis"]:
             st.info(f"📊 Analysis: **{st.session_state['analysis']}**")
 
         st.subheader("Draft Reply:")
         st.code(st.session_state["current_reply"], language=None)
         
-        # Save to History Logic
         if st.button("💾 Save to History"):
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
             st.session_state["history"].append({
