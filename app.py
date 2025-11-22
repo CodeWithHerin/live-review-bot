@@ -23,15 +23,15 @@ st.markdown("""
     /* 4. Hide the "Running" man animation */
     .stStatusWidget {visibility: hidden;}
     
-    /* 5. Move content up (Remove whitespace) */
+    /* 5. Hide the entire top header bar (Share, Star, GitHub etc.) */
+    header[data-testid="stHeader"] {
+        display: none;
+    }
+    
+    /* 6. Adjust top padding for main content */
     .block-container {
         padding-top: 2rem !important;
         padding-bottom: 1rem !important;
-    }
-    
-    /* 6. Hide the "Header" container completely */
-    header[data-testid="stHeader"] {
-        visibility: hidden;
     }
     
     /* GREEN BUTTONS */
@@ -39,6 +39,9 @@ st.markdown("""
         background-color: #2E7D32; color: white; border: none; border-radius: 6px; font-weight: 600;
     }
     div.stButton > button[kind="primary"]:hover { background-color: #1B5E20; }
+    
+    /* SECONDARY BUTTONS */
+    div.stButton > button[kind="secondary"] { border: 1px solid #555; color: #eee; border-radius: 6px; }
     
     /* TEXT AREA FIX */
     textarea { font-size: 1rem !important; font-family: sans-serif !important; }
@@ -114,6 +117,7 @@ def check_password():
     if not st.session_state["password_correct"]:
         col1, col2, col3 = st.columns([1,2,1])
         with col2:
+            st.markdown("<br>", unsafe_allow_html=True) # Add some spacing
             st.header("💎 Smart Agency Login")
             username = st.text_input("Username")
             password = st.text_input("Password", type="password")
