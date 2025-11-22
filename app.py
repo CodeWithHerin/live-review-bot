@@ -8,45 +8,43 @@ import time
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Review Reply Pro", page_icon="💎", layout="wide", initial_sidebar_state="collapsed")
 
-# --- ULTIMATE CLEAN-UP (CSS + JS HACKS) ---
+# --- ULTIMATE CLEAN-UP CSS ---
 st.markdown("""
     <style>
-    /* 1. Hide ALL Streamlit Standard Elements */
+    /* 1. HIDE ALL DEFAULT MENUS */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
+    
+    /* 2. HIDE TOOLBARS */
     [data-testid="stToolbar"] {visibility: hidden; height: 0%;}
     [data-testid="stDecoration"] {visibility: hidden;}
     [data-testid="stStatusWidget"] {visibility: hidden;}
-    .stAppDeployButton {display: none !important;}
     
-    /* 2. Adjust Main Content Area */
+    /* 3. HIDE MANAGE APP BUTTON (Aggressive) */
+    .stAppDeployButton {display: none !important;}
+    [data-testid="stAppDeployButton"] {display: none !important;}
+    
+    /* 4. FORCE SIDEBAR TOGGLE VISIBILITY (Try one last time to force it) */
+    [data-testid="stSidebarCollapsedControl"] {
+        display: block !important;
+        visibility: visible !important;
+        z-index: 1000000 !important;
+        color: white !important;
+        background-color: #262730;
+        border-radius: 50%;
+        padding: 4px;
+        position: fixed;
+        top: 20px;
+        left: 20px;
+    }
+    
+    /* 5. ADJUST PADDING */
     .block-container {
         padding-top: 3rem !important;
         padding-bottom: 1rem !important;
     }
     
-    /* 3. Custom Sidebar Button Style */
-    .custom-sidebar-btn {
-        position: fixed;
-        top: 15px;
-        left: 15px;
-        z-index: 999999;
-        background-color: #262730;
-        color: white;
-        border: 1px solid #444;
-        border-radius: 5px;
-        padding: 8px 12px;
-        font-size: 16px;
-        cursor: pointer;
-        text-decoration: none;
-        transition: 0.3s;
-    }
-    .custom-sidebar-btn:hover {
-        background-color: #333;
-        border-color: #2E7D32;
-    }
-
     /* GREEN BUTTONS */
     div.stButton > button[kind="primary"] {
         background-color: #2E7D32; color: white; border: none; border-radius: 6px; font-weight: 600;
@@ -93,7 +91,6 @@ if "history" not in st.session_state: st.session_state["history"] = []
 if "current_reply" not in st.session_state: st.session_state["current_reply"] = ""
 if "analysis" not in st.session_state: st.session_state["analysis"] = None
 if "last_action" not in st.session_state: st.session_state["last_action"] = None
-if "sidebar_state" not in st.session_state: st.session_state["sidebar_state"] = "collapsed"
 
 # --- CACHED MODEL LOADER ---
 @st.cache_resource
@@ -176,18 +173,13 @@ if check_password():
             st.session_state["password_correct"] = False
             st.rerun()
 
-    # --- CUSTOM HEADER UI ---
-    # This creates a visual header area since we hid the real one
-    # It also instructs the user about the sidebar
-    
-    # We rely on the NATIVE sidebar toggle behavior which usually works when header is hidden BUT
-    # if it fails, we instruct users to use the arrow key or swipe on mobile.
-    
+    # --- MAIN UI ---
     st.title("💎 Smart Review Responder")
     
+    # --- EMERGENCY NAVIGATION INSTRUCTION ---
+    # If the arrow is invisible, this box tells them exactly what to do
     if not hotel_name:
-        # Bright Blue Box to catch attention
-        st.info("👉 **Setup:** Click the arrow (>) at the top-left to open Settings.")
+        st.info("↖ **Start Here:** Hover over the top-left corner to find the arrow (>) and open Settings.")
     else:
         st.markdown(f"Drafting for: **{hotel_name}**")
 
