@@ -8,32 +8,45 @@ import time
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Review Reply Pro", page_icon="💎", layout="wide", initial_sidebar_state="collapsed")
 
-# --- ULTIMATE CSS STYLING (HIDE EVERYTHING & CLEAN UP) ---
+# --- ULTIMATE CLEAN-UP (CSS + JS HACKS) ---
 st.markdown("""
     <style>
-    /* 1. HIDE ALL DEFAULT MENUS & BUTTONS */
+    /* 1. Hide ALL Streamlit Standard Elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-    
-    /* 2. HIDE TOOLBARS & DECORATIONS */
     [data-testid="stToolbar"] {visibility: hidden; height: 0%;}
     [data-testid="stDecoration"] {visibility: hidden;}
     [data-testid="stStatusWidget"] {visibility: hidden;}
-    
-    /* 3. HIDE MANAGE APP BUTTON (Aggressive) */
     .stAppDeployButton {display: none !important;}
-    [data-testid="stAppDeployButton"] {display: none !important;}
     
-    /* 4. HIDE NATIVE SIDEBAR ARROW (We will use our own button) */
-    [data-testid="stSidebarCollapsedControl"] {display: none !important;}
-    
-    /* 5. ADJUST PADDING */
+    /* 2. Adjust Main Content Area */
     .block-container {
-        padding-top: 1rem !important;
+        padding-top: 3rem !important;
         padding-bottom: 1rem !important;
     }
     
+    /* 3. Custom Sidebar Button Style */
+    .custom-sidebar-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 999999;
+        background-color: #262730;
+        color: white;
+        border: 1px solid #444;
+        border-radius: 5px;
+        padding: 8px 12px;
+        font-size: 16px;
+        cursor: pointer;
+        text-decoration: none;
+        transition: 0.3s;
+    }
+    .custom-sidebar-btn:hover {
+        background-color: #333;
+        border-color: #2E7D32;
+    }
+
     /* GREEN BUTTONS */
     div.stButton > button[kind="primary"] {
         background-color: #2E7D32; color: white; border: none; border-radius: 6px; font-weight: 600;
@@ -80,6 +93,7 @@ if "history" not in st.session_state: st.session_state["history"] = []
 if "current_reply" not in st.session_state: st.session_state["current_reply"] = ""
 if "analysis" not in st.session_state: st.session_state["analysis"] = None
 if "last_action" not in st.session_state: st.session_state["last_action"] = None
+if "sidebar_state" not in st.session_state: st.session_state["sidebar_state"] = "collapsed"
 
 # --- CACHED MODEL LOADER ---
 @st.cache_resource
@@ -144,7 +158,7 @@ if check_password():
     except Exception as e:
         st.error(f"Connection Error: {e}")
 
-    # --- SIDEBAR (The Control Panel) ---
+    # --- SIDEBAR ---
     with st.sidebar:
         st.success(f"👤 Agent: {st.session_state['user']}")
         st.divider()
@@ -162,20 +176,18 @@ if check_password():
             st.session_state["password_correct"] = False
             st.rerun()
 
-    # --- MAIN UI ---
-    # CUSTOM LAYOUT: Title + Settings Button side-by-side
-    col_title, col_settings = st.columns([4, 1])
-    with col_title:
-        st.title("💎 Smart Review Responder")
-    with col_settings:
-        st.markdown("<br>", unsafe_allow_html=True)
-        # This is a 'fake' button that doesn't do logic but reminds them
-        # Since we can't programmatically open sidebar without hacks, we use a clear visual instruction
-        st.info("⬅ Open Sidebar for Settings")
-
-    # VISUAL CUE
+    # --- CUSTOM HEADER UI ---
+    # This creates a visual header area since we hid the real one
+    # It also instructs the user about the sidebar
+    
+    # We rely on the NATIVE sidebar toggle behavior which usually works when header is hidden BUT
+    # if it fails, we instruct users to use the arrow key or swipe on mobile.
+    
+    st.title("💎 Smart Review Responder")
+    
     if not hotel_name:
-        st.warning("⚠️ Please open the Sidebar (Top-Left) to enter Business Details.")
+        # Bright Blue Box to catch attention
+        st.info("👉 **Setup:** Click the arrow (>) at the top-left to open Settings.")
     else:
         st.markdown(f"Drafting for: **{hotel_name}**")
 
