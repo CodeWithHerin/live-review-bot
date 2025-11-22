@@ -134,8 +134,7 @@ if check_password():
             try:
                 genai.configure(api_key=api_key)
                 
-                # --- FIX 1: SWITCH TO 1.5 FLASH (STABLE) & MAX TOKENS (8192) ---
-                # This ensures it NEVER runs out of space
+                # --- NUCLEAR SAFETY & LIMITS ---
                 safety_settings = {
                     HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
                     HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
@@ -143,8 +142,9 @@ if check_password():
                     HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
                 }
                 
+                # Back to 2.5-Flash (It works) + 8192 Tokens (Infinite budget)
                 model = genai.GenerativeModel(
-                    'gemini-1.5-flash', 
+                    'gemini-2.5-flash', 
                     generation_config={"temperature": 0.7, "max_output_tokens": 8192},
                     safety_settings=safety_settings
                 )
@@ -165,8 +165,8 @@ if check_password():
                     st.session_state["last_action"] = "long"
                     prompt = f"""
                     {base_context}
-                    TASK: Write a detailed, empathetic reply (4-5 sentences).
-                    RULES: Validate feelings. Explain gently. Invite back. 2 Emojis. Match Language.
+                    TASK: Write a detailed, warm reply (4-5 sentences).
+                    RULES: Deeply empathize. Explain gently. Invite back. 2 Emojis. Match Language.
                     ALWAYS END WITH: "\n\n- {safe_mgr}"
                     """
                 else:
@@ -181,18 +181,25 @@ if check_password():
                 with st.spinner("Consulting Brand Guidelines..."):
                     response = model.generate_content(prompt)
                     
-                    # --- FIX 2: FAIL-SAFE EXTRACTION ---
+                    # --- V6.2 FIX: FORCE SHOW CONTENT ---
                     final_text = ""
                     
+                    # Check 1: Is there text?
                     if response.parts:
                         final_text = response.text
+                        
+                    # Check 2: Is there a candidate with text? (Even if incomplete)
                     elif response.candidates and response.candidates[0].content.parts:
                         final_text = response.candidates[0].content.parts[0].text
+                        if response.candidates[0].finish_reason == 2:
+                            final_text += "\n\n(Note: Reply cut off slightly, but here is the draft)"
+                            
+                    # Check 3: Safety Block (Show Clean Warning)
                     elif response.prompt_feedback and response.prompt_feedback.block_reason:
-                        final_text = "🛡️ Brand Protection Alert: This review contains unsafe content. Please remove profanity."
+                        final_text = "🛡️ Brand Protection Alert: Review contains unsafe language."
+                        
                     else:
-                        # Fallback if something truly weird happens
-                        final_text = "⚠️ System Timeout. Please click 'Generate' again."
+                        final_text = "⚠️ AI did not return text. Please try again."
                     
                     st.session_state["current_reply"] = final_text
                     
