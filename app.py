@@ -11,11 +11,18 @@ st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
+    
+    /* Green Primary Button */
     div.stButton > button[kind="primary"] {
         background-color: #2E7D32; color: white; border: none; border-radius: 6px; font-weight: 600;
     }
     div.stButton > button[kind="primary"]:hover { background-color: #1B5E20; }
+    
+    /* Neutral Secondary Buttons */
     div.stButton > button[kind="secondary"] { border: 1px solid #555; color: #eee; border-radius: 6px; }
+    
+    /* Fix text area font size */
+    textarea { font-size: 1rem !important; font-family: sans-serif !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -100,7 +107,7 @@ if check_password():
         
         st.divider()
         st.subheader("🎨 Brand Voice")
-        brand_voice = st.text_area("Describe Tone", value="Professional but conversational. Warm, like a real person talking.", height=100)
+        brand_voice = st.text_area("Describe Tone", value="Professional, Warm, and Concise")
         
         if hotel_name: st.caption("✅ Profile Active")
         if st.button("Log Out"):
@@ -121,7 +128,7 @@ if check_password():
     with col3:
         elaborate_btn = st.button("✍️ Add Detail (Polite)", use_container_width=True)
 
-    # 4. LOGIC - THE HUMAN TOUCH UPDATE
+    # 4. LOGIC - EMOJI + TEXT WRAPPING UPDATE
     if generate_btn or shorten_btn or elaborate_btn:
         if not user_review:
             st.warning("Please paste a review first.")
@@ -130,7 +137,7 @@ if check_password():
                 genai.configure(api_key=api_key)
                 model = genai.GenerativeModel('gemini-2.5-flash')
 
-                # --- THE HUMANIZER PROMPT ---
+                # --- THE HUMAN + EMOJI PROMPT ---
                 base_instruction = f"""
                 Role: You are {manager_name}, the manager of {hotel_name} in {location}.
                 Services: {services}.
@@ -138,20 +145,20 @@ if check_password():
                 
                 Task: Write a reply to this review: "{user_review}"
                 
-                CRITICAL "HUMAN" RULES:
-                1. **Sound Natural:** Use contractions (e.g., "I'm" instead of "I am", "We're" instead of "We are").
-                2. **No Robot Speak:** NEVER use phrases like "We hope this message finds you well," "We strive for excellence," or "We understand your frustration."
-                3. **Be Specific:** Reference a specific detail from their review so they know a human read it.
-                4. **Length:** Keep it tight (3-4 sentences max). Get to the point.
-                5. **Sign-off:** Just "- {manager_name}" (Don't write "Sincerely" or "Best Regards").
+                CRITICAL RULES:
+                1. **Sound Natural:** Use contractions (e.g., "I'm", "We're").
+                2. **Emojis:** Use exactly 1 or 2 relevant emojis (e.g., 🙏, 🏨, 🌟). Do not overuse.
+                3. **Length:** Keep it tight (3-4 sentences max).
+                4. **Structure:** Acknowledge -> Solve/Explain -> Sign off.
+                5. **Sign-off:** Just "- {manager_name}".
                 
                 Language Rule: Detect the review language and reply in the SAME language.
                 """
 
                 if shorten_btn:
-                    base_instruction += "\nCONSTRAINT: Maximum 2 sentences. Very direct and punchy."
+                    base_instruction += "\nCONSTRAINT: Maximum 2 sentences. Direct."
                 if elaborate_btn:
-                    base_instruction += "\nCONSTRAINT: Be warmer and slightly more detailed, but keep the natural tone."
+                    base_instruction += "\nCONSTRAINT: Be warmer and explain politely."
 
                 with st.spinner("Consulting Brand Guidelines..."):
                     response = model.generate_content(base_instruction)
@@ -169,14 +176,21 @@ if check_password():
             except Exception as e:
                 st.error(f"Error: {str(e)}")
 
-    # 5. DISPLAY
+    # 5. DISPLAY RESULT (TEXT AREA FIX)
     if st.session_state["current_reply"]:
         st.divider()
         if st.session_state["analysis"]:
             st.info(f"📊 Analysis: **{st.session_state['analysis']}**")
 
         st.subheader("Draft Reply:")
-        st.code(st.session_state["current_reply"], language=None)
+        
+        # --- FIX: USING TEXT_AREA FOR WRAPPING & EDITING ---
+        st.text_area(
+            "Copy or Edit your reply below:", 
+            value=st.session_state["current_reply"], 
+            height=150,
+            key="final_output_box"
+        )
         
         if st.button("💾 Save to History"):
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
