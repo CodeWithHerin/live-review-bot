@@ -8,45 +8,52 @@ import time
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Review Reply Pro", page_icon="💎", layout="wide")
 
-# --- ADVANCED STYLING (PRECISE FIX) ---
+# --- ADVANCED STYLING (SURGICAL REMOVAL) ---
 st.markdown("""
     <style>
-    /* 1. HIDE TOP RIGHT MENU ONLY (Keep left arrow visible) */
+    /* 1. Hide Top Right Menu & Deploy Button */
     [data-testid="stToolbar"] {
         visibility: hidden; 
         height: 0%;
     }
     
-    /* 2. HIDE DECORATION BAR (The colored line at top) */
+    /* 2. Hide Decoration Bar (Rainbow Line) */
     [data-testid="stDecoration"] {
         visibility: hidden;
     }
     
-    /* 3. HIDE FOOTER */
+    /* 3. Hide Footer */
     footer {visibility: hidden;}
     #MainMenu {visibility: hidden;}
     
-    /* 4. HIDE BOTTOM 'MANAGE APP' (Targeting multiple IDs to be sure) */
+    /* 4. Hide Bottom 'Manage App' Button */
     .stAppDeployButton {display: none;}
     [data-testid="stAppDeployButton"] {display: none;}
+    
+    /* 5. Hide Status Widget (Running Man) */
     [data-testid="stStatusWidget"] {visibility: hidden;}
     
-    /* 5. ADJUST PADDING */
+    /* 6. ADJUST PADDING (Remove white space) */
     .block-container {
         padding-top: 2rem !important;
         padding-bottom: 1rem !important;
     }
     
-    /* GREEN BUTTONS */
+    /* 7. ENSURE SIDEBAR ARROW IS VISIBLE */
+    /* This overrides any global hiding that might affect the arrow */
+    [data-testid="stSidebarCollapsedControl"] {
+        visibility: visible !important;
+        display: block !important;
+    }
+    
+    /* BUTTON STYLES */
     div.stButton > button[kind="primary"] {
         background-color: #2E7D32; color: white; border: none; border-radius: 6px; font-weight: 600;
     }
     div.stButton > button[kind="primary"]:hover { background-color: #1B5E20; }
-    
-    /* SECONDARY BUTTONS */
     div.stButton > button[kind="secondary"] { border: 1px solid #555; color: #eee; border-radius: 6px; }
     
-    /* TEXT AREA FIX */
+    /* TEXT AREA */
     textarea { font-size: 1rem !important; font-family: sans-serif !important; }
     
     /* WARNING BOX */
