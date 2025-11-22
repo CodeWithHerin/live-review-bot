@@ -8,18 +8,37 @@ import time
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Review Reply Pro", page_icon="💎", layout="wide")
 
-# --- STYLING ---
+# --- STYLING (CSS HACKS) ---
 st.markdown("""
     <style>
-    #MainMenu {visibility: hidden;}
+    /* 1. Hide Top Decoration Bar */
+    header {visibility: hidden;}
+    
+    /* 2. Hide Streamlit Footer */
     footer {visibility: hidden;}
+    
+    /* 3. Hide the "Manage App" button at bottom */
+    .stAppDeployButton {display: none;}
+    
+    /* 4. Remove excessive top white space */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+    }
+    
+    /* Primary Green Button */
     div.stButton > button[kind="primary"] {
         background-color: #2E7D32; color: white; border: none; border-radius: 6px; font-weight: 600;
     }
     div.stButton > button[kind="primary"]:hover { background-color: #1B5E20; }
+    
+    /* Secondary Gray Buttons */
     div.stButton > button[kind="secondary"] { border: 1px solid #555; color: #eee; border-radius: 6px; }
+    
+    /* Better Text Area Reading */
     textarea { font-size: 1rem !important; font-family: sans-serif !important; }
     
+    /* Warning Box */
     .warning {
         padding: 15px;
         background-color: #FFF3CD;
@@ -54,21 +73,16 @@ if "current_reply" not in st.session_state: st.session_state["current_reply"] = 
 if "analysis" not in st.session_state: st.session_state["analysis"] = None
 if "last_action" not in st.session_state: st.session_state["last_action"] = None
 
-# --- CACHED MODEL LOADER (SPEED HACK) ---
-# This keeps the connection open so we don't reconnect every click
+# --- CACHED MODEL LOADER ---
 @st.cache_resource
 def get_model(api_key):
     genai.configure(api_key=api_key)
-    
-    # NUCLEAR SAFETY SETTINGS
     safety_settings = {
         HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
         HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
         HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
         HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
     }
-    
-    # GEMINI 2.5 FLASH + HIGH CREATIVITY (0.9)
     model = genai.GenerativeModel(
         'gemini-2.5-flash', 
         generation_config={"temperature": 0.9, "max_output_tokens": 8192},
@@ -76,7 +90,7 @@ def get_model(api_key):
     )
     return model
 
-# --- HELPER FUNCTIONS ---
+# --- HELPERS ---
 def clear_text_box():
     if "final_output_box" in st.session_state: 
         del st.session_state["final_output_box"]
@@ -110,13 +124,11 @@ def check_password():
 
 # --- MAIN APP ---
 if check_password():
-    # Load Key
     if "GEMINI_API_KEY" in st.secrets:
         api_key = st.secrets["GEMINI_API_KEY"]
     else:
         api_key = st.text_input("Enter API Key", type="password")
 
-    # Initialize Model (Cached)
     try:
         if api_key:
             model = get_model(api_key)
@@ -162,8 +174,6 @@ if check_password():
         else:
             try:
                 safe_mgr = manager_name if manager_name else "The Management"
-                
-                # HUMAN PROMPTS (Restored High Quality)
                 base_context = f"You are {safe_mgr}, manager of {hotel_name} in {location}. Services: {services}. Voice: {brand_voice}. Review: '{user_review}'"
                 
                 if shorten_btn:
@@ -192,17 +202,10 @@ if check_password():
                     """
 
                 with st.spinner("Consulting Brand Guidelines..."):
-                    # STREAMING + TEXT AREA (Best of Both Worlds)
-                    # We stream to a temp variable, then show the final box.
-                    # This feels faster than waiting for the whole block.
-                    
                     full_response = ""
                     response_stream = model.generate_content(prompt, stream=True)
-                    
-                    # Fast Stream Loop
                     for chunk in response_stream:
-                        if chunk.text:
-                            full_response += chunk.text
+                        if chunk.text: full_response += chunk.text
                     
                     st.session_state["current_reply"] = full_response
                     
@@ -214,7 +217,6 @@ if check_password():
                             st.session_state["analysis"] = None
 
             except Exception as e:
-                # Graceful Error Handling
                 if "safety" in str(e).lower():
                     st.session_state["current_reply"] = "🛡️ Brand Protection: Review contains unsafe content."
                 elif "404" in str(e):
@@ -224,7 +226,6 @@ if check_password():
 
     if st.session_state["current_reply"]:
         st.divider()
-        
         if st.session_state["analysis"] and "🛡️" not in st.session_state["current_reply"]:
             st.info(f"📊 Analysis: **{st.session_state['analysis']}**")
 
@@ -233,7 +234,6 @@ if check_password():
         if "🛡️" in st.session_state["current_reply"]:
              st.markdown(f"<div class='warning'>{st.session_state['current_reply']}</div>", unsafe_allow_html=True)
         else:
-            # Use Milliseconds in key to FORCE refresh every single time
             unique_key = f"box_{st.session_state['last_action']}_{time.time()}"
             st.text_area("Copy or Edit:", value=st.session_state["current_reply"], height=150, key=unique_key)
             
