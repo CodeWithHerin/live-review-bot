@@ -100,10 +100,11 @@ if check_password():
             on_change=update_client_info
         )
 
-        hotel_name = st.text_input("Business Name", key="h_name")
+        # Required Field Check logic relies on this variable being populated
+        hotel_name = st.text_input("Business Name (Required)", key="h_name", placeholder="Enter Hotel Name")
         location = st.text_input("Location", key="loc")
         services = st.text_input("Services", key="srv")
-        manager_name = st.text_input("Sign-off Name", key="mgr")
+        manager_name = st.text_input("Sign-off Name", key="mgr", placeholder="e.g. The Manager")
         
         st.divider()
         st.subheader("🎨 Brand Voice")
@@ -116,7 +117,12 @@ if check_password():
 
     # 3. MAIN INTERFACE
     st.title("💎 Smart Review Responder")
-    st.markdown(f"Drafting for: **{hotel_name if hotel_name else 'Unknown'}**")
+    
+    # Warning if no hotel name is set
+    if not hotel_name:
+        st.warning("⚠ Please enter a Business Name in the sidebar to start.")
+    else:
+        st.markdown(f"Drafting for: *{hotel_name}*")
 
     user_review = st.text_area("Paste Customer Review:", height=150)
 
@@ -124,41 +130,44 @@ if check_password():
     with col1:
         generate_btn = st.button("✨ Generate Reply", type="primary", use_container_width=True)
     with col2:
-        shorten_btn = st.button("✂️ Make Conciser", use_container_width=True)
+        shorten_btn = st.button("✂ Make Conciser", use_container_width=True)
     with col3:
-        elaborate_btn = st.button("✍️ Add Detail (Polite)", use_container_width=True)
+        elaborate_btn = st.button("✍ Add Detail (Polite)", use_container_width=True)
 
-    # 4. LOGIC - EMOJI + TEXT WRAPPING UPDATE
+    # 4. LOGIC - SAFETY LOCK UPDATE
     if generate_btn or shorten_btn or elaborate_btn:
+        # --- SAFETY CHECKS ---
         if not user_review:
             st.warning("Please paste a review first.")
+        elif not hotel_name:
+            st.error("❌ Error: Business Name is missing. Please fill it in the Sidebar.")
         else:
             try:
                 genai.configure(api_key=api_key)
                 model = genai.GenerativeModel('gemini-2.5-flash')
 
-                # --- THE HUMAN + EMOJI PROMPT ---
+                # Default to "The Management" if no manager name is given
+                safe_manager_name = manager_name if manager_name else "The Management"
+
                 base_instruction = f"""
-                Role: You are {manager_name}, the manager of {hotel_name} in {location}.
+                Role: You are {safe_manager_name}, the manager of {hotel_name} in {location}.
                 Services: {services}.
                 Brand Voice: {brand_voice}.
                 
                 Task: Write a reply to this review: "{user_review}"
                 
                 CRITICAL RULES:
-                1. **Sound Natural:** Use contractions (e.g., "I'm", "We're").
-                2. **Emojis:** Use exactly 1 or 2 relevant emojis (e.g., 🙏, 🏨, 🌟). Do not overuse.
-                3. **Length:** Keep it tight (3-4 sentences max).
-                4. **Structure:** Acknowledge -> Solve/Explain -> Sign off.
-                5. **Sign-off:** Just "- {manager_name}".
+                1. *Sound Natural:* Use contractions.
+                2. *No Hallucinations:* DO NOT invent an email address or phone number unless I specifically provided one in the input.
+                3. *Emojis:* Use exactly 1 or 2 relevant emojis.
+                4. *Length:* Keep it tight (3-4 sentences max).
+                5. *Sign-off:* Just "- {safe_manager_name}".
                 
                 Language Rule: Detect the review language and reply in the SAME language.
                 """
 
-                if shorten_btn:
-                    base_instruction += "\nCONSTRAINT: Maximum 2 sentences. Direct."
-                if elaborate_btn:
-                    base_instruction += "\nCONSTRAINT: Be warmer and explain politely."
+                if shorten_btn: base_instruction += "\nCONSTRAINT: Maximum 2 sentences. Direct."
+                if elaborate_btn: base_instruction += "\nCONSTRAINT: Be warmer and explain politely."
 
                 with st.spinner("Consulting Brand Guidelines..."):
                     response = model.generate_content(base_instruction)
@@ -176,15 +185,14 @@ if check_password():
             except Exception as e:
                 st.error(f"Error: {str(e)}")
 
-    # 5. DISPLAY RESULT (TEXT AREA FIX)
+    # 5. DISPLAY
     if st.session_state["current_reply"]:
         st.divider()
         if st.session_state["analysis"]:
-            st.info(f"📊 Analysis: **{st.session_state['analysis']}**")
+            st.info(f"📊 Analysis: *{st.session_state['analysis']}*")
 
         st.subheader("Draft Reply:")
         
-        # --- FIX: USING TEXT_AREA FOR WRAPPING & EDITING ---
         st.text_area(
             "Copy or Edit your reply below:", 
             value=st.session_state["current_reply"], 
@@ -212,4 +220,4 @@ if check_password():
             csv = df.to_csv(index=False).encode('utf-8-sig')
             st.download_button("📥 Download CSV", data=csv, file_name='smart_report.csv', mime='text/csv')
         else:
-            st.write("No history yet.")
+            st.write("No history yet.")
