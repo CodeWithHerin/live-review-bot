@@ -11,47 +11,51 @@ st.set_page_config(page_title="Review Reply Pro", page_icon="💎", layout="wide
 # --- ULTIMATE CSS STYLING ---
 st.markdown("""
     <style>
-    /* 1. HIDE ALL DEFAULT STREAMLIT MENUS */
+    /* 1. HIDE HAMBURGER MENU & FOOTER */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    header {visibility: hidden;}
     
-    /* 2. FORCE SIDEBAR BUTTON VISIBILITY */
-    /* We hide the header above, but we force the sidebar toggle to show up */
-    [data-testid="stSidebarCollapsedControl"] {
-        visibility: visible !important;
-        display: block !important;
-        position: fixed;
-        top: 20px;
-        left: 20px;
-        z-index: 100000;
-        background-color: rgba(255, 255, 255, 0.1);
-        border-radius: 5px;
-        padding: 5px;
+    /* 2. HIDE RIGHT-SIDE TOOLBAR (Share, Star, etc.) */
+    [data-testid="stToolbar"] {
+        visibility: hidden;
+        height: 0%;
     }
     
-    /* 3. HIDE MANAGE APP / DEPLOY BUTTON / STATUS */
-    .stAppDeployButton {display: none !important;}
-    [data-testid="stStatusWidget"] {visibility: hidden !important;}
-    div[class*="stAppDeployButton"] {display: none !important;}
+    /* 3. HIDE DECORATION BAR */
+    [data-testid="stDecoration"] {
+        visibility: hidden;
+    }
     
-    /* 4. ADJUST PADDING */
+    /* 4. HIDE BOTTOM MANAGE APP BUTTON */
+    .stAppDeployButton {display: none;}
+    [data-testid="stStatusWidget"] {visibility: hidden;}
+    
+    /* 5. ADJUST TOP PADDING (So title isn't hidden) */
     .block-container {
         padding-top: 3rem !important;
         padding-bottom: 1rem !important;
     }
     
-    /* 5. BUTTON STYLES */
+    /* 6. ENSURE SIDEBAR TOGGLE IS VISIBLE */
+    [data-testid="stSidebarCollapsedControl"] {
+        visibility: visible !important;
+        display: block !important;
+        color: inherit !important;
+    }
+    
+    /* GREEN BUTTONS */
     div.stButton > button[kind="primary"] {
         background-color: #2E7D32; color: white; border: none; border-radius: 6px; font-weight: 600;
     }
     div.stButton > button[kind="primary"]:hover { background-color: #1B5E20; }
+    
+    /* SECONDARY BUTTONS */
     div.stButton > button[kind="secondary"] { border: 1px solid #555; color: #eee; border-radius: 6px; }
     
-    /* 6. TEXT AREA */
+    /* TEXT AREA FIX */
     textarea { font-size: 1rem !important; font-family: sans-serif !important; }
     
-    /* 7. WARNING BOX */
+    /* WARNING BOX */
     .warning-box {
         padding: 15px;
         background-color: #FFF3CD;
@@ -170,27 +174,9 @@ if check_password():
     # --- MAIN UI ---
     st.title("💎 Smart Review Responder")
     
-    # --- FALLBACK UI BUTTON (The "Plan B") ---
-    # If the arrow is still somehow invisible, this button ensures the user is never stuck.
+    # VISUAL CUE (Just in case)
     if not hotel_name:
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            st.info("👉 **Action Required:** Please enter Business Details to start.")
-        with col2:
-            # This is a dummy button that just refreshes, but the text instructs them
-            st.markdown("""
-                <style>
-                .arrow-instruction {
-                    border: 1px solid #4CAF50;
-                    padding: 10px;
-                    border-radius: 5px;
-                    text-align: center;
-                    color: #4CAF50;
-                    font-weight: bold;
-                }
-                </style>
-                <div class="arrow-instruction">↖ Click Arrow Top-Left</div>
-            """, unsafe_allow_html=True)
+        st.info("👉 **Start Here:** Open Sidebar (Top-Left) to enter details.")
     else:
         st.markdown(f"Drafting for: **{hotel_name}**")
 
