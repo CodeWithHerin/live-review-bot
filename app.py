@@ -8,55 +8,50 @@ import time
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Review Reply Pro", page_icon="💎", layout="wide")
 
-# --- ADVANCED STYLING (SURGICAL REMOVAL) ---
+# --- ULTIMATE CSS STYLING ---
 st.markdown("""
     <style>
-    /* 1. Hide Top Right Menu & Deploy Button */
-    [data-testid="stToolbar"] {
-        visibility: hidden; 
-        height: 0%;
-    }
-    
-    /* 2. Hide Decoration Bar (Rainbow Line) */
-    [data-testid="stDecoration"] {
-        visibility: hidden;
-    }
-    
-    /* 3. Hide Footer */
-    footer {visibility: hidden;}
+    /* 1. HIDE ALL DEFAULT STREAMLIT MENUS */
     #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
     
-    /* 4. Hide Bottom 'Manage App' Button */
-    .stAppDeployButton {display: none;}
-    [data-testid="stAppDeployButton"] {display: none;}
-    
-    /* 5. Hide Status Widget (Running Man) */
-    [data-testid="stStatusWidget"] {visibility: hidden;}
-    
-    /* 6. ADJUST PADDING (Remove white space) */
-    .block-container {
-        padding-top: 2rem !important;
-        padding-bottom: 1rem !important;
-    }
-    
-    /* 7. ENSURE SIDEBAR ARROW IS VISIBLE */
-    /* This overrides any global hiding that might affect the arrow */
+    /* 2. FORCE SIDEBAR BUTTON VISIBILITY */
+    /* We hide the header above, but we force the sidebar toggle to show up */
     [data-testid="stSidebarCollapsedControl"] {
         visibility: visible !important;
         display: block !important;
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        z-index: 100000;
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 5px;
+        padding: 5px;
     }
     
-    /* BUTTON STYLES */
+    /* 3. HIDE MANAGE APP / DEPLOY BUTTON / STATUS */
+    .stAppDeployButton {display: none !important;}
+    [data-testid="stStatusWidget"] {visibility: hidden !important;}
+    div[class*="stAppDeployButton"] {display: none !important;}
+    
+    /* 4. ADJUST PADDING */
+    .block-container {
+        padding-top: 3rem !important;
+        padding-bottom: 1rem !important;
+    }
+    
+    /* 5. BUTTON STYLES */
     div.stButton > button[kind="primary"] {
         background-color: #2E7D32; color: white; border: none; border-radius: 6px; font-weight: 600;
     }
     div.stButton > button[kind="primary"]:hover { background-color: #1B5E20; }
     div.stButton > button[kind="secondary"] { border: 1px solid #555; color: #eee; border-radius: 6px; }
     
-    /* TEXT AREA */
+    /* 6. TEXT AREA */
     textarea { font-size: 1rem !important; font-family: sans-serif !important; }
     
-    /* WARNING BOX */
+    /* 7. WARNING BOX */
     .warning-box {
         padding: 15px;
         background-color: #FFF3CD;
@@ -175,9 +170,27 @@ if check_password():
     # --- MAIN UI ---
     st.title("💎 Smart Review Responder")
     
-    # VISUAL CUE FOR SIDEBAR
+    # --- FALLBACK UI BUTTON (The "Plan B") ---
+    # If the arrow is still somehow invisible, this button ensures the user is never stuck.
     if not hotel_name:
-        st.info("👉 **Open Sidebar (Top-Left Arrow) to enter Business Details.**")
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.info("👉 **Action Required:** Please enter Business Details to start.")
+        with col2:
+            # This is a dummy button that just refreshes, but the text instructs them
+            st.markdown("""
+                <style>
+                .arrow-instruction {
+                    border: 1px solid #4CAF50;
+                    padding: 10px;
+                    border-radius: 5px;
+                    text-align: center;
+                    color: #4CAF50;
+                    font-weight: bold;
+                }
+                </style>
+                <div class="arrow-instruction">↖ Click Arrow Top-Left</div>
+            """, unsafe_allow_html=True)
     else:
         st.markdown(f"Drafting for: **{hotel_name}**")
 
