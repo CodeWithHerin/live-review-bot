@@ -8,29 +8,30 @@ import time
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Review Reply Pro", page_icon="💎", layout="wide")
 
-# --- ADVANCED STYLING (HIDE EVERYTHING) ---
+# --- ADVANCED STYLING (SURGICAL REMOVAL) ---
 st.markdown("""
     <style>
-    /* 1. Hide the Streamlit Hamburger Menu (Top Right) */
-    #MainMenu {visibility: hidden;}
-    
-    /* 2. Hide the "Deploy" button */
-    .stDeployButton {display: none;}
-    
-    /* 3. Hide the Footer (Made with Streamlit) */
-    footer {visibility: hidden;}
-    
-    /* 4. Hide the "Running" man animation */
-    .stStatusWidget {visibility: hidden;}
-    
-    /* 5. Hide the entire top header bar (Share, Star, GitHub etc.) */
-    header[data-testid="stHeader"] {
-        display: none;
+    /* 1. HIDE TOP RIGHT MENUS (Share, Star, GitHub, etc.) */
+    [data-testid="stToolbar"] {
+        visibility: hidden;
+        height: 0%; 
     }
     
-    /* 6. Adjust top padding for main content */
+    /* 2. HIDE TOP HEADER DECORATION (But keep sidebar toggle) */
+    [data-testid="stHeader"] {
+        background-color: rgba(0,0,0,0);
+        color: rgba(0,0,0,0);
+    }
+    
+    /* 3. HIDE FOOTER & 'MANAGE APP' BUTTONS */
+    footer {visibility: hidden;}
+    #MainMenu {visibility: hidden;}
+    .stAppDeployButton {display: none;}
+    [data-testid="stStatusWidget"] {visibility: hidden;}
+    
+    /* 4. FIX SPACING (Bring content down a bit) */
     .block-container {
-        padding-top: 2rem !important;
+        padding-top: 3rem !important; /* Increased padding */
         padding-bottom: 1rem !important;
     }
     
@@ -47,7 +48,7 @@ st.markdown("""
     textarea { font-size: 1rem !important; font-family: sans-serif !important; }
     
     /* WARNING BOX */
-    .warning {
+    .warning-box {
         padding: 15px;
         background-color: #FFF3CD;
         color: #856404;
@@ -117,7 +118,7 @@ def check_password():
     if not st.session_state["password_correct"]:
         col1, col2, col3 = st.columns([1,2,1])
         with col2:
-            st.markdown("<br>", unsafe_allow_html=True) # Add some spacing
+            st.markdown("<br><br>", unsafe_allow_html=True) # Double spacing fix
             st.header("💎 Smart Agency Login")
             username = st.text_input("Username")
             password = st.text_input("Password", type="password")
@@ -235,13 +236,14 @@ if check_password():
 
     if st.session_state["current_reply"]:
         st.divider()
+        
         if st.session_state["analysis"] and "🛡️" not in st.session_state["current_reply"]:
             st.info(f"📊 Analysis: **{st.session_state['analysis']}**")
 
         st.subheader("Draft Reply:")
         
         if "🛡️" in st.session_state["current_reply"]:
-             st.markdown(f"<div class='warning'>{st.session_state['current_reply']}</div>", unsafe_allow_html=True)
+             st.markdown(f"<div class='warning-box'>{st.session_state['current_reply']}</div>", unsafe_allow_html=True)
         else:
             unique_key = f"box_{st.session_state['last_action']}_{time.time()}"
             st.text_area("Copy or Edit:", value=st.session_state["current_reply"], height=150, key=unique_key)
