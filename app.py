@@ -121,62 +121,74 @@ if check_password():
             try:
                 genai.configure(api_key=api_key)
                 
-                # --- FIX 1: INCREASE TOKEN LIMIT TO 1000 ---
-                # This ensures finish_reason is never 2 (Max Tokens)
-                model = genai.GenerativeModel('gemini-2.5-flash', 
-                    generation_config={"temperature": 0.7, "max_output_tokens": 1000})
+                # MAX TOKENS set to 1000 to give AI breathing room
+                # SAFETY SETTINGS disabled to allow reading negative reviews
+                safety_settings = [
+                    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+                ]
+                
+                model = genai.GenerativeModel(
+                    'gemini-2.5-flash', 
+                    generation_config={"temperature": 0.7, "max_output_tokens": 1000},
+                    safety_settings=safety_settings
+                )
                 
                 safe_mgr = manager_name if manager_name else "The Management"
                 
-                context = f"""
-                You are {safe_mgr}, manager of {hotel_name} in {location}. 
-                Services: {services}. Tone: {brand_voice}.
-                Customer Review: "{user_review}"
-                """
+                base_context = f"You are {safe_mgr}, manager of {hotel_name} in {location}. Services: {services}. Voice: {brand_voice}. Review: '{user_review}'"
                 
                 if shorten_btn:
                     st.session_state["last_action"] = "short" 
                     prompt = f"""
-                    {context}
+                    {base_context}
                     TASK: Write a punchy reply (1-2 sentences).
                     RULES: No fluff. Address point. 1 Emoji. Match Language.
-                    SIGN-OFF: "- {safe_mgr}"
+                    ALWAYS END WITH: "\n\n- {safe_mgr}"
                     """
                 elif elaborate_btn:
                     st.session_state["last_action"] = "long"
                     prompt = f"""
-                    {context}
+                    {base_context}
                     TASK: Write a detailed, empathetic reply (4-5 sentences).
                     RULES: Validate feelings. Explain gently. 2 Emojis. Match Language.
-                    SIGN-OFF: "- {safe_mgr}"
+                    ALWAYS END WITH: "\n\n- {safe_mgr}"
                     """
                 else:
                     st.session_state["last_action"] = "std"
                     prompt = f"""
-                    {context}
+                    {base_context}
                     TASK: Write a balanced professional reply (3 sentences).
                     RULES: Natural tone. 'I' not 'We'. 1 Emoji. Match Language.
-                    SIGN-OFF: "- {safe_mgr}"
+                    ALWAYS END WITH: "\n\n- {safe_mgr}"
                     """
 
                 with st.spinner("Consulting Brand Guidelines..."):
                     response = model.generate_content(prompt)
                     
-                    # --- FIX 2: SAFE TEXT EXTRACTION ---
-                    # Sometimes AI stops early. We check for parts before crashing.
-                    if response.parts:
-                        st.session_state["current_reply"] = response.text
-                    elif response.finish_reason == 2:
-                         # If it ran out of tokens but has some text, try to salvage it
-                         # If completely empty, show error
-                         st.warning("⚠️ Reply was cut off. Please try generating again.")
-                    else:
-                        st.session_state["current_reply"] = "Error: AI returned no text. Please try again."
+                    # --- V5.6 FIX: ROBUST TEXT EXTRACTION ---
+                    # We manually dig for the text to avoid 'finish_reason' crashes
+                    final_text = ""
+                    if response.candidates:
+                        candidate = response.candidates[0]
+                        if candidate.content and candidate.content.parts:
+                            final_text = candidate.content.parts[0].text
+                        elif candidate.finish_reason == 2:
+                            final_text = "⚠️ Error: The AI reply was cut off (Max Tokens). Please try 'Make Conciser'."
+                        else:
+                            final_text = "⚠️ Error: Safety Filter triggered. Please refine the review text."
                     
-                    if generate_btn and response.parts:
-                        analysis_prompt = f"Analyze review: '{user_review}'. Return string: Sentiment | Category"
-                        analysis = model.generate_content(analysis_prompt).text
-                        st.session_state["analysis"] = analysis
+                    st.session_state["current_reply"] = final_text
+                    
+                    if generate_btn and final_text:
+                        try:
+                            analysis_prompt = f"Analyze review: '{user_review}'. Return string: Sentiment | Category"
+                            analysis = model.generate_content(analysis_prompt).text
+                            st.session_state["analysis"] = analysis
+                        except:
+                            st.session_state["analysis"] = "Analysis Unavailable"
 
             except Exception as e:
                 st.error(f"System Error: {str(e)}")
