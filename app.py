@@ -42,12 +42,10 @@ if "history" not in st.session_state: st.session_state["history"] = []
 if "current_reply" not in st.session_state: st.session_state["current_reply"] = ""
 if "analysis" not in st.session_state: st.session_state["analysis"] = None
 
-# --- HELPER: FORCE RESET TEXT BOX ---
+# --- HELPERS ---
 def clear_text_box():
-    if "final_output_box" in st.session_state:
-        del st.session_state["final_output_box"]
+    if "final_output_box" in st.session_state: del st.session_state["final_output_box"]
 
-# --- AUTOFILL LOGIC ---
 def update_client_info():
     selected = st.session_state["selected_client_dropdown"]
     data = CLIENT_PRESETS[selected]
@@ -56,11 +54,9 @@ def update_client_info():
     st.session_state["srv"] = data["services"]
     st.session_state["mgr"] = data["owner"]
 
-# --- LOGIN SYSTEM ---
+# --- LOGIN ---
 def check_password():
-    if "password_correct" not in st.session_state:
-        st.session_state["password_correct"] = False
-
+    if "password_correct" not in st.session_state: st.session_state["password_correct"] = False
     if not st.session_state["password_correct"]:
         col1, col2, col3 = st.columns([1,2,1])
         with col2:
@@ -88,17 +84,14 @@ if check_password():
         st.success(f"👤 Agent: {st.session_state['user']}")
         st.divider()
         st.subheader("📂 Client Profile")
-        selected_client = st.selectbox(
-            "Select Client:", list(CLIENT_PRESETS.keys()), 
-            key="selected_client_dropdown", on_change=update_client_info
-        )
+        selected_client = st.selectbox("Select Client:", list(CLIENT_PRESETS.keys()), key="selected_client_dropdown", on_change=update_client_info)
         hotel_name = st.text_input("Business Name (Required)", key="h_name", placeholder="Enter Hotel Name")
         location = st.text_input("Location", key="loc")
         services = st.text_input("Services", key="srv")
         manager_name = st.text_input("Sign-off Name", key="mgr", placeholder="e.g. The Manager")
         st.divider()
         st.subheader("🎨 Brand Voice")
-        brand_voice = st.text_area("Describe Tone", value="Professional, Warm, and Concise")
+        brand_voice = st.text_area("Describe Tone", value="Professional but conversational. Warm, like a real person talking.")
         if hotel_name: st.caption("✅ Profile Active")
         if st.button("Log Out"):
             st.session_state["password_correct"] = False
@@ -112,7 +105,6 @@ if check_password():
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        # ADDED CALLBACK to force clear the box BEFORE generation runs
         generate_btn = st.button("✨ Generate Reply", type="primary", use_container_width=True, on_click=clear_text_box)
     with col2:
         shorten_btn = st.button("✂ Make Conciser", use_container_width=True, on_click=clear_text_box)
@@ -127,24 +119,41 @@ if check_password():
         else:
             try:
                 genai.configure(api_key=api_key)
-                model = genai.GenerativeModel('gemini-2.5-flash')
-                safe_manager_name = manager_name if manager_name else "The Management"
-
-                base_instruction = f"""
-                Role: You are {safe_manager_name}, manager of {hotel_name} in {location}.
-                Services: {services}. Voice: {brand_voice}.
-                Task: Reply to review: "{user_review}"
-                RULES: 1. Language: Reply in SAME language as review. 2. Emojis: Use 1-2. 3. Sign-off: "- {safe_manager_name}".
+                # Set Temperature to 0.7 for varied, human-like creativity
+                model = genai.GenerativeModel('gemini-2.5-flash', generation_config={"temperature": 0.7})
+                
+                safe_mgr = manager_name if manager_name else "The Management"
+                
+                # --- THE "QUALITY FIRST" PROMPT ---
+                # I put back ALL the human instructions. No cutting corners.
+                core_persona = f"""
+                You are {safe_mgr}, the manager of {hotel_name} in {location}.
+                Services: {services}.
+                Brand Voice: {brand_voice}.
+                
+                CRITICAL INSTRUCTIONS:
+                1. *Sound Natural:* Use contractions (I'm, We're). Avoid robotic phrases like "We hope this finds you well."
+                2. *Be Specific:* Reference the customer's specific complaint or compliment.
+                3. *Emojis:* Use exactly 1 or 2 relevant emojis (🙏, 🏨, 🌟).
+                4. *Language:* Detect the review language and reply in the SAME language.
+                5. *Sign-off:* "- {safe_mgr}"
                 """
 
-                if shorten_btn: base_instruction += "\nCONSTRAINT: Max 2 sentences. Direct."
-                if elaborate_btn: base_instruction += "\nCONSTRAINT: Warm, polite explanation. Max 4 sentences."
+                if generate_btn:
+                    # Standard Generation
+                    prompt = f"{core_persona}\nTask: Write a warm, 3-sentence reply to: \"{user_review}\""
+                elif shorten_btn:
+                    # Edit Mode: Short
+                    prompt = f"{core_persona}\nTask: Write a very short, direct reply (1-2 sentences) to: \"{user_review}\""
+                elif elaborate_btn:
+                    # Edit Mode: Detailed
+                    prompt = f"{core_persona}\nTask: Write a detailed, empathetic reply (4-5 sentences) explaining our side politely to: \"{user_review}\""
 
-                with st.spinner("Drafting..."):
-                    response = model.generate_content(base_instruction)
+                with st.spinner("Consulting Brand Guidelines..."):
+                    response = model.generate_content(prompt)
                     st.session_state["current_reply"] = response.text
                     
-                    # SPEED OPTIMIZATION: Only analyze on fresh generate, not on edits
+                    # Analysis runs only on fresh generation
                     if generate_btn:
                         analysis_prompt = f"Analyze review: '{user_review}'. Return string: Sentiment | Category"
                         analysis = model.generate_content(analysis_prompt).text
@@ -159,15 +168,12 @@ if check_password():
             st.info(f"📊 Analysis: *{st.session_state['analysis']}*")
 
         st.subheader("Draft Reply:")
-        
-        # This key matches the one we delete in 'clear_text_box'
         st.text_area("Copy or Edit:", value=st.session_state["current_reply"], height=150, key="final_output_box")
         
         if st.button("💾 Save to History"):
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
             st.session_state["history"].append({
-                "Date": timestamp, "Client": hotel_name,
-                "Review": user_review[:50] + "...", "Reply": st.session_state["current_reply"]
+                "Date": timestamp, "Client": hotel_name, "Review": user_review[:50] + "...", "Reply": st.session_state["current_reply"]
             })
             st.success("Saved!")
 
@@ -178,3 +184,5 @@ if check_password():
             st.dataframe(df, use_container_width=True)
             csv = df.to_csv(index=False).encode('utf-8-sig')
             st.download_button("📥 Download CSV", data=csv, file_name='smart_report.csv', mime='text/csv')
+        else:
+            st.write("No history yet.")
