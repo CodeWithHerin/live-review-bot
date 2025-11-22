@@ -8,32 +8,32 @@ import time
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Review Reply Pro", page_icon="💎", layout="wide")
 
-# --- ADVANCED STYLING (TOTAL CLUTTER REMOVAL) ---
+# --- ADVANCED STYLING (PRECISE FIX) ---
 st.markdown("""
     <style>
-    /* 1. Hide Main Menu (Hamburger) & Footer */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    
-    /* 2. Hide Toolbar (Top Right Share/Star/Github) */
+    /* 1. HIDE TOP RIGHT MENU ONLY (Keep left arrow visible) */
     [data-testid="stToolbar"] {
         visibility: hidden; 
         height: 0%;
     }
     
-    /* 3. Hide Header Decoration (Colored Line) */
-    header[data-testid="stHeader"] {
-        background-color: transparent;
-        z-index: 1; /* Keep sidebar toggle visible */
+    /* 2. HIDE DECORATION BAR (The colored line at top) */
+    [data-testid="stDecoration"] {
+        visibility: hidden;
     }
     
-    /* 4. Hide Bottom 'Manage App' & Status Widget */
+    /* 3. HIDE FOOTER */
+    footer {visibility: hidden;}
+    #MainMenu {visibility: hidden;}
+    
+    /* 4. HIDE BOTTOM 'MANAGE APP' (Targeting multiple IDs to be sure) */
     .stAppDeployButton {display: none;}
+    [data-testid="stAppDeployButton"] {display: none;}
     [data-testid="stStatusWidget"] {visibility: hidden;}
     
-    /* 5. Adjust Layout Padding (Fix Login Heading Position) */
+    /* 5. ADJUST PADDING */
     .block-container {
-        padding-top: 3rem !important; /* Comfortable spacing from top */
+        padding-top: 2rem !important;
         padding-bottom: 1rem !important;
     }
     
@@ -120,7 +120,7 @@ def check_password():
     if not st.session_state["password_correct"]:
         col1, col2, col3 = st.columns([1,2,1])
         with col2:
-            st.markdown("<br>", unsafe_allow_html=True) # Simple spacing
+            st.markdown("<br><br>", unsafe_allow_html=True)
             st.header("💎 Smart Agency Login")
             username = st.text_input("Username")
             password = st.text_input("Password", type="password")
@@ -147,6 +147,7 @@ if check_password():
     except Exception as e:
         st.error(f"Connection Error: {e}")
 
+    # --- SIDEBAR ---
     with st.sidebar:
         st.success(f"👤 Agent: {st.session_state['user']}")
         st.divider()
@@ -164,9 +165,14 @@ if check_password():
             st.session_state["password_correct"] = False
             st.rerun()
 
+    # --- MAIN UI ---
     st.title("💎 Smart Review Responder")
-    if not hotel_name: st.warning("⚠️ Please enter a Business Name in the sidebar to start.")
-    else: st.markdown(f"Drafting for: **{hotel_name}**")
+    
+    # VISUAL CUE FOR SIDEBAR
+    if not hotel_name:
+        st.info("👈 **Start Here:** Open the Sidebar (arrow at top-left) to enter Business Details.")
+    else:
+        st.markdown(f"Drafting for: **{hotel_name}**")
 
     user_review = st.text_area("Paste Customer Review:", height=150)
 
@@ -182,7 +188,7 @@ if check_password():
         if not user_review:
             st.warning("Please paste a review first.")
         elif not hotel_name:
-            st.error("❌ Error: Business Name is missing.")
+            st.error("❌ Error: Business Name is missing. Check Sidebar.")
         else:
             try:
                 safe_mgr = manager_name if manager_name else "The Management"
