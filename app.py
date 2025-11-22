@@ -8,14 +8,13 @@ import time
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Review Reply Pro", page_icon="💎", layout="wide")
 
-# --- ADVANCED STYLING (THE FINAL FIX) ---
+# --- ADVANCED STYLING (SURGICAL REMOVAL) ---
 st.markdown("""
     <style>
-    /* 1. Hide Top Right Menu (Meatballs, Share, etc.) */
+    /* 1. Hide Top Right Menu & Deploy Button */
     [data-testid="stToolbar"] {
-        visibility: hidden;
+        visibility: hidden; 
         height: 0%;
-        position: fixed;
     }
     
     /* 2. Hide Decoration Bar (Rainbow Line) */
@@ -27,32 +26,24 @@ st.markdown("""
     footer {visibility: hidden;}
     #MainMenu {visibility: hidden;}
     
-    /* 4. Hide Bottom 'Manage App' Button (Targeting Parent Container) */
+    /* 4. Hide Bottom 'Manage App' Button */
     .stAppDeployButton {display: none;}
     [data-testid="stAppDeployButton"] {display: none;}
-    [data-testid="stStatusWidget"] {visibility: hidden;}
-    div[class^="stAppDeployButton"] {display: none;} /* Wildcard hide */
     
-    /* 5. TRANSPARENT HEADER (Keeps Sidebar Toggle Visible) */
-    header[data-testid="stHeader"] {
-        background-color: transparent;
-        z-index: 99; 
+    /* 5. Hide Status Widget (Running Man) */
+    [data-testid="stStatusWidget"] {visibility: hidden;}
+    
+    /* 6. ADJUST PADDING (Remove white space) */
+    .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 1rem !important;
     }
     
-    /* 6. FORCE SIDEBAR TOGGLE VISIBILITY & COLOR */
+    /* 7. ENSURE SIDEBAR ARROW IS VISIBLE */
+    /* This overrides any global hiding that might affect the arrow */
     [data-testid="stSidebarCollapsedControl"] {
         visibility: visible !important;
         display: block !important;
-        z-index: 100 !important;
-        color: white !important; /* Force white color */
-        background-color: rgba(0,0,0,0.5); /* Add subtle background to make it pop */
-        border-radius: 5px;
-    }
-    
-    /* 7. ADJUST PADDING */
-    .block-container {
-        padding-top: 4rem !important; /* More space for the arrow */
-        padding-bottom: 1rem !important;
     }
     
     /* BUTTON STYLES */
@@ -62,7 +53,7 @@ st.markdown("""
     div.stButton > button[kind="primary"]:hover { background-color: #1B5E20; }
     div.stButton > button[kind="secondary"] { border: 1px solid #555; color: #eee; border-radius: 6px; }
     
-    /* TEXT AREA FIX */
+    /* TEXT AREA */
     textarea { font-size: 1rem !important; font-family: sans-serif !important; }
     
     /* WARNING BOX */
@@ -184,7 +175,7 @@ if check_password():
     # --- MAIN UI ---
     st.title("💎 Smart Review Responder")
     
-    # VISUAL CUE - Always show this if sidebar arrow is missed
+    # VISUAL CUE FOR SIDEBAR
     if not hotel_name:
         st.info("👉 **Open Sidebar (Top-Left Arrow) to enter Business Details.**")
     else:
