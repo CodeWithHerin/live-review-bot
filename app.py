@@ -8,42 +8,49 @@ import time
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Review Reply Pro", page_icon="💎", layout="wide")
 
-# --- ADVANCED STYLING (SURGICAL REMOVAL) ---
+# --- CSS STYLING (THE FINAL FIX) ---
 st.markdown("""
     <style>
-    /* 1. Hide Top Right Menu & Deploy Button */
+    /* 1. HIDE TOP RIGHT MENU (Meatballs, Share, etc.) */
     [data-testid="stToolbar"] {
-        visibility: hidden; 
+        visibility: hidden;
         height: 0%;
+        position: fixed;
     }
     
-    /* 2. Hide Decoration Bar (Rainbow Line) */
+    /* 2. HIDE DECORATION BAR (Rainbow Line) */
     [data-testid="stDecoration"] {
         visibility: hidden;
     }
     
-    /* 3. Hide Footer */
+    /* 3. HIDE FOOTER */
     footer {visibility: hidden;}
     #MainMenu {visibility: hidden;}
     
-    /* 4. Hide Bottom 'Manage App' Button */
-    .stAppDeployButton {display: none;}
-    [data-testid="stAppDeployButton"] {display: none;}
-    
-    /* 5. Hide Status Widget (Running Man) */
-    [data-testid="stStatusWidget"] {visibility: hidden;}
-    
-    /* 6. ADJUST PADDING (Remove white space) */
-    .block-container {
-        padding-top: 2rem !important;
-        padding-bottom: 1rem !important;
+    /* 4. HIDE BOTTOM 'MANAGE APP' BUTTON */
+    .stAppDeployButton {
+        display: none;
+        visibility: hidden;
     }
     
-    /* 7. ENSURE SIDEBAR ARROW IS VISIBLE */
-    /* This overrides any global hiding that might affect the arrow */
+    /* 5. TRANSPARENT HEADER (Keeps Sidebar Toggle Visible) */
+    header[data-testid="stHeader"] {
+        background-color: transparent;
+        z-index: 99; /* Force it to be above everything */
+    }
+    
+    /* 6. FORCE SIDEBAR TOGGLE VISIBILITY */
     [data-testid="stSidebarCollapsedControl"] {
         visibility: visible !important;
         display: block !important;
+        z-index: 100 !important; /* Ensure it's clickable */
+        color: white !important; /* Ensure icon is visible on dark background */
+    }
+    
+    /* 7. ADJUST PADDING */
+    .block-container {
+        padding-top: 3rem !important;
+        padding-bottom: 1rem !important;
     }
     
     /* BUTTON STYLES */
@@ -53,7 +60,7 @@ st.markdown("""
     div.stButton > button[kind="primary"]:hover { background-color: #1B5E20; }
     div.stButton > button[kind="secondary"] { border: 1px solid #555; color: #eee; border-radius: 6px; }
     
-    /* TEXT AREA */
+    /* TEXT AREA FIX */
     textarea { font-size: 1rem !important; font-family: sans-serif !important; }
     
     /* WARNING BOX */
@@ -175,9 +182,9 @@ if check_password():
     # --- MAIN UI ---
     st.title("💎 Smart Review Responder")
     
-    # VISUAL CUE FOR SIDEBAR
+    # VISUAL CUE IF ARROW IS MISSED
     if not hotel_name:
-        st.info("👈 **Start Here:** Open the Sidebar (arrow at top-left) to enter Business Details.")
+        st.info("👉 **Step 1:** Click the arrow (`>`) at the top-left to open the Sidebar and enter your Hotel Name.")
     else:
         st.markdown(f"Drafting for: **{hotel_name}**")
 
