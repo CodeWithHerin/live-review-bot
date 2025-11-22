@@ -20,7 +20,6 @@ st.markdown("""
     div.stButton > button[kind="secondary"] { border: 1px solid #555; color: #eee; border-radius: 6px; }
     textarea { font-size: 1rem !important; font-family: sans-serif !important; }
     
-    /* Warning Box */
     .warning {
         padding: 15px;
         background-color: #FFF3CD;
@@ -55,7 +54,29 @@ if "current_reply" not in st.session_state: st.session_state["current_reply"] = 
 if "analysis" not in st.session_state: st.session_state["analysis"] = None
 if "last_action" not in st.session_state: st.session_state["last_action"] = None
 
-# --- HELPERS ---
+# --- CACHED MODEL LOADER (SPEED HACK) ---
+# This keeps the connection open so we don't reconnect every click
+@st.cache_resource
+def get_model(api_key):
+    genai.configure(api_key=api_key)
+    
+    # NUCLEAR SAFETY SETTINGS
+    safety_settings = {
+        HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+        HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+        HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+        HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+    }
+    
+    # GEMINI 2.5 FLASH + HIGH CREATIVITY (0.9)
+    model = genai.GenerativeModel(
+        'gemini-2.5-flash', 
+        generation_config={"temperature": 0.9, "max_output_tokens": 8192},
+        safety_settings=safety_settings
+    )
+    return model
+
+# --- HELPER FUNCTIONS ---
 def clear_text_box():
     if "final_output_box" in st.session_state: 
         del st.session_state["final_output_box"]
@@ -89,10 +110,18 @@ def check_password():
 
 # --- MAIN APP ---
 if check_password():
+    # Load Key
     if "GEMINI_API_KEY" in st.secrets:
         api_key = st.secrets["GEMINI_API_KEY"]
     else:
         api_key = st.text_input("Enter API Key", type="password")
+
+    # Initialize Model (Cached)
+    try:
+        if api_key:
+            model = get_model(api_key)
+    except Exception as e:
+        st.error(f"Connection Error: {e}")
 
     with st.sidebar:
         st.success(f"👤 Agent: {st.session_state['user']}")
@@ -105,7 +134,7 @@ if check_password():
         manager_name = st.text_input("Sign-off Name", key="mgr", placeholder="e.g. The Manager")
         st.divider()
         st.subheader("🎨 Brand Voice")
-        brand_voice = st.text_area("Describe Tone", value="Professional, Warm, and Concise")
+        brand_voice = st.text_area("Describe Tone", value="Professional but conversational. Warm, like a real person talking.")
         if hotel_name: st.caption("✅ Profile Active")
         if st.button("Log Out"):
             st.session_state["password_correct"] = False
@@ -132,24 +161,9 @@ if check_password():
             st.error("❌ Error: Business Name is missing.")
         else:
             try:
-                genai.configure(api_key=api_key)
-                
-                # SAFETY: NO BLOCKS
-                safety_settings = {
-                    HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-                    HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-                    HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-                    HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-                }
-                
-                # MODEL: 2.5 Flash (Reliable) + Temp 0.5 (Faster)
-                model = genai.GenerativeModel(
-                    'gemini-2.5-flash', 
-                    generation_config={"temperature": 0.5, "max_output_tokens": 8192},
-                    safety_settings=safety_settings
-                )
-                
                 safe_mgr = manager_name if manager_name else "The Management"
+                
+                # HUMAN PROMPTS (Restored High Quality)
                 base_context = f"You are {safe_mgr}, manager of {hotel_name} in {location}. Services: {services}. Voice: {brand_voice}. Review: '{user_review}'"
                 
                 if shorten_btn:
@@ -173,35 +187,38 @@ if check_password():
                     prompt = f"""
                     {base_context}
                     TASK: Write a balanced professional reply (3 sentences).
-                    RULES: Acknowledge -> Solve -> Close. Natural tone. 1 Emoji. Match Language.
+                    RULES: Acknowledge -> Solve -> Close. Natural tone. Use 'I' not 'We'. 1 Emoji. Match Language.
                     ALWAYS END WITH: "\n\n- {safe_mgr}"
                     """
 
-                # --- V6.5 SPEED FIX: LIGHTWEIGHT STREAMING ---
-                placeholder = st.empty() # Lightweight container
-                full_response = ""
-                
-                response_stream = model.generate_content(prompt, stream=True)
-                
-                for chunk in response_stream:
-                    if chunk.text:
-                        full_response += chunk.text
-                        placeholder.markdown(full_response + "▌") 
-                
-                placeholder.empty() # Swap it out
-                st.session_state["current_reply"] = full_response
-                
-                if generate_btn:
-                    try:
-                        # Analysis runs in background, doesn't block text
-                        analysis = model.generate_content(f"Analyze: '{user_review}'. Return: Sentiment | Category").text
-                        st.session_state["analysis"] = analysis
-                    except:
-                        st.session_state["analysis"] = None
+                with st.spinner("Consulting Brand Guidelines..."):
+                    # STREAMING + TEXT AREA (Best of Both Worlds)
+                    # We stream to a temp variable, then show the final box.
+                    # This feels faster than waiting for the whole block.
+                    
+                    full_response = ""
+                    response_stream = model.generate_content(prompt, stream=True)
+                    
+                    # Fast Stream Loop
+                    for chunk in response_stream:
+                        if chunk.text:
+                            full_response += chunk.text
+                    
+                    st.session_state["current_reply"] = full_response
+                    
+                    if generate_btn:
+                        try:
+                            analysis = model.generate_content(f"Analyze: '{user_review}'. Return: Sentiment | Category").text
+                            st.session_state["analysis"] = analysis
+                        except:
+                            st.session_state["analysis"] = None
 
             except Exception as e:
+                # Graceful Error Handling
                 if "safety" in str(e).lower():
                     st.session_state["current_reply"] = "🛡️ Brand Protection: Review contains unsafe content."
+                elif "404" in str(e):
+                    st.session_state["current_reply"] = "⚠️ System Error: Model Update. Please try again in 1 min."
                 else:
                     st.error(f"Network Error: {str(e)}")
 
@@ -216,6 +233,7 @@ if check_password():
         if "🛡️" in st.session_state["current_reply"]:
              st.markdown(f"<div class='warning'>{st.session_state['current_reply']}</div>", unsafe_allow_html=True)
         else:
+            # Use Milliseconds in key to FORCE refresh every single time
             unique_key = f"box_{st.session_state['last_action']}_{time.time()}"
             st.text_area("Copy or Edit:", value=st.session_state["current_reply"], height=150, key=unique_key)
             
