@@ -2,6 +2,7 @@ import streamlit as st
 import google.generativeai as genai
 import pandas as pd
 from datetime import datetime
+import time
 
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Review Reply Pro", page_icon="💎", layout="wide")
@@ -43,11 +44,14 @@ if "current_reply" not in st.session_state: st.session_state["current_reply"] = 
 if "analysis" not in st.session_state: st.session_state["analysis"] = None
 if "last_action" not in st.session_state: st.session_state["last_action"] = None
 
-# --- HELPERS ---
+# --- HELPER FUNCTIONS ---
 def clear_text_box():
-    if "final_output_box" in st.session_state: del st.session_state["final_output_box"]
+    """Forces the text box to reset so new text appears instantly"""
+    if "final_output_box" in st.session_state: 
+        del st.session_state["final_output_box"]
 
 def update_client_info():
+    """Updates the sidebar inputs when dropdown changes"""
     selected = st.session_state["selected_client_dropdown"]
     data = CLIENT_PRESETS[selected]
     st.session_state["h_name"] = data["name"]
@@ -55,7 +59,7 @@ def update_client_info():
     st.session_state["srv"] = data["services"]
     st.session_state["mgr"] = data["owner"]
 
-# --- LOGIN ---
+# --- LOGIN SYSTEM ---
 def check_password():
     if "password_correct" not in st.session_state: st.session_state["password_correct"] = False
     if not st.session_state["password_correct"]:
@@ -121,18 +125,17 @@ if check_password():
             try:
                 genai.configure(api_key=api_key)
                 
-                # MAX TOKENS set to 1000 to give AI breathing room
-                # SAFETY SETTINGS disabled to allow reading negative reviews
+                # --- SWITCH TO STABLE MODEL (1.5 Flash) ---
+                # Max Tokens 2048 = Impossible to cut off
                 safety_settings = [
                     {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
                     {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
                     {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
                     {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
                 ]
-                
                 model = genai.GenerativeModel(
-                    'gemini-2.5-flash', 
-                    generation_config={"temperature": 0.7, "max_output_tokens": 1000},
+                    'gemini-1.5-flash', 
+                    generation_config={"temperature": 0.8, "max_output_tokens": 2048},
                     safety_settings=safety_settings
                 )
                 
@@ -144,16 +147,16 @@ if check_password():
                     st.session_state["last_action"] = "short" 
                     prompt = f"""
                     {base_context}
-                    TASK: Write a punchy reply (1-2 sentences).
-                    RULES: No fluff. Address point. 1 Emoji. Match Language.
+                    TASK: Write a VERY short reply (1-2 sentences MAX).
+                    RULES: Be direct. No fluff phrases. 1 Emoji. Match Language.
                     ALWAYS END WITH: "\n\n- {safe_mgr}"
                     """
                 elif elaborate_btn:
                     st.session_state["last_action"] = "long"
                     prompt = f"""
                     {base_context}
-                    TASK: Write a detailed, empathetic reply (4-5 sentences).
-                    RULES: Validate feelings. Explain gently. 2 Emojis. Match Language.
+                    TASK: Write a detailed, warm reply (4-5 sentences).
+                    RULES: Deeply empathize. Explain gently. Invite back. 2 Emojis. Match Language.
                     ALWAYS END WITH: "\n\n- {safe_mgr}"
                     """
                 else:
@@ -161,24 +164,21 @@ if check_password():
                     prompt = f"""
                     {base_context}
                     TASK: Write a balanced professional reply (3 sentences).
-                    RULES: Natural tone. 'I' not 'We'. 1 Emoji. Match Language.
+                    RULES: Acknowledge -> Solve -> Close. Natural tone. 1 Emoji. Match Language.
                     ALWAYS END WITH: "\n\n- {safe_mgr}"
                     """
 
                 with st.spinner("Consulting Brand Guidelines..."):
                     response = model.generate_content(prompt)
                     
-                    # --- V5.6 FIX: ROBUST TEXT EXTRACTION ---
-                    # We manually dig for the text to avoid 'finish_reason' crashes
+                    # Safe Extraction
                     final_text = ""
                     if response.candidates:
                         candidate = response.candidates[0]
                         if candidate.content and candidate.content.parts:
                             final_text = candidate.content.parts[0].text
-                        elif candidate.finish_reason == 2:
-                            final_text = "⚠️ Error: The AI reply was cut off (Max Tokens). Please try 'Make Conciser'."
                         else:
-                            final_text = "⚠️ Error: Safety Filter triggered. Please refine the review text."
+                            final_text = "⚠️ Error: AI safety block. Try rewording."
                     
                     st.session_state["current_reply"] = final_text
                     
@@ -200,7 +200,8 @@ if check_password():
 
         st.subheader("Draft Reply:")
         
-        unique_key = f"box_{st.session_state['last_action']}_{datetime.now().strftime('%H%M%S')}"
+        # --- ULTIMATE REFRESH FIX: Use Time.time() for unique key ---
+        unique_key = f"box_{st.session_state['last_action']}_{time.time()}"
         
         st.text_area("Copy or Edit:", value=st.session_state["current_reply"], height=150, key=unique_key)
         
