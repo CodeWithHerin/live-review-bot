@@ -8,37 +8,42 @@ import time
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Review Reply Pro", page_icon="💎", layout="wide")
 
-# --- STYLING (THE CLEAN-UP) ---
+# --- ADVANCED STYLING (HIDE EVERYTHING) ---
 st.markdown("""
     <style>
-    /* 1. HIDE TOP MENU (Hamburger) */
+    /* 1. Hide the Streamlit Hamburger Menu (Top Right) */
     #MainMenu {visibility: hidden;}
     
-    /* 2. HIDE FOOTER (Made with Streamlit) */
+    /* 2. Hide the "Deploy" button */
+    .stDeployButton {display: none;}
+    
+    /* 3. Hide the Footer (Made with Streamlit) */
     footer {visibility: hidden;}
     
-    /* 3. HIDE BOTTOM 'MANAGE APP' BUTTON */
-    .stAppDeployButton {display: none;}
+    /* 4. Hide the "Running" man animation */
+    .stStatusWidget {visibility: hidden;}
     
-    /* 4. REMOVE TOP WHITE SPACE */
+    /* 5. Move content up (Remove whitespace) */
     .block-container {
-        padding-top: 1rem !important;
+        padding-top: 2rem !important;
         padding-bottom: 1rem !important;
     }
     
-    /* GREEN PRIMARY BUTTON */
+    /* 6. Hide the "Header" container completely */
+    header[data-testid="stHeader"] {
+        visibility: hidden;
+    }
+    
+    /* GREEN BUTTONS */
     div.stButton > button[kind="primary"] {
         background-color: #2E7D32; color: white; border: none; border-radius: 6px; font-weight: 600;
     }
     div.stButton > button[kind="primary"]:hover { background-color: #1B5E20; }
     
-    /* SECONDARY BUTTONS */
-    div.stButton > button[kind="secondary"] { border: 1px solid #555; color: #eee; border-radius: 6px; }
-    
-    /* TEXT AREA FONT FIX */
+    /* TEXT AREA FIX */
     textarea { font-size: 1rem !important; font-family: sans-serif !important; }
     
-    /* WARNING BOX STYLE */
+    /* WARNING BOX */
     .warning {
         padding: 15px;
         background-color: #FFF3CD;
