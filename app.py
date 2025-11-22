@@ -11,27 +11,22 @@ st.set_page_config(page_title="Review Reply Pro", page_icon="💎", layout="wide
 # --- ADVANCED STYLING (SURGICAL REMOVAL) ---
 st.markdown("""
     <style>
-    /* 1. HIDE TOP RIGHT MENUS (Share, Star, GitHub, etc.) */
-    [data-testid="stToolbar"] {
-        visibility: hidden;
-        height: 0%; 
-    }
-    
-    /* 2. HIDE TOP HEADER DECORATION (But keep sidebar toggle) */
-    [data-testid="stHeader"] {
-        background-color: rgba(0,0,0,0);
-        color: rgba(0,0,0,0);
-    }
-    
-    /* 3. HIDE FOOTER & 'MANAGE APP' BUTTONS */
-    footer {visibility: hidden;}
+    /* 1. Hide Top Right Menu (Hamburger) & Footer */
     #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    
+    /* 2. Hide 'Manage App' Button */
     .stAppDeployButton {display: none;}
     [data-testid="stStatusWidget"] {visibility: hidden;}
     
-    /* 4. FIX SPACING (Bring content down a bit) */
+    /* 3. Fix Header to Show Sidebar Toggle but Hide Decoration */
+    header[data-testid="stHeader"] {
+        background-color: transparent;
+    }
+    
+    /* 4. Adjust Padding */
     .block-container {
-        padding-top: 3rem !important; /* Increased padding */
+        padding-top: 3rem !important;
         padding-bottom: 1rem !important;
     }
     
