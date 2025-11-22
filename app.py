@@ -67,18 +67,6 @@ def update_client_info():
     st.session_state["srv"] = data["services"]
     st.session_state["mgr"] = data["owner"]
 
-def generate_with_retry(model, prompt, retries=3):
-    """Attempts to generate content multiple times if connection fails"""
-    last_error = None
-    for attempt in range(retries):
-        try:
-            response = model.generate_content(prompt)
-            return response
-        except Exception as e:
-            last_error = e
-            time.sleep(1 * (attempt + 1)) # Wait 1s, then 2s, then 3s
-    raise last_error
-
 # --- LOGIN ---
 def check_password():
     if "password_correct" not in st.session_state: st.session_state["password_correct"] = False
@@ -116,7 +104,7 @@ if check_password():
         manager_name = st.text_input("Sign-off Name", key="mgr", placeholder="e.g. The Manager")
         st.divider()
         st.subheader("🎨 Brand Voice")
-        brand_voice = st.text_area("Describe Tone", value="Professional, Warm, and Concise")
+        brand_voice = st.text_area("Describe Tone", value="Professional but conversational. Warm, like a real person talking.")
         if hotel_name: st.caption("✅ Profile Active")
         if st.button("Log Out"):
             st.session_state["password_correct"] = False
@@ -145,7 +133,7 @@ if check_password():
             try:
                 genai.configure(api_key=api_key)
                 
-                # SAFETY: BLOCK_NONE (Allow everything)
+                # SAFETY: NO BLOCKS
                 safety_settings = {
                     HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
                     HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
@@ -153,7 +141,7 @@ if check_password():
                     HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
                 }
                 
-                # BACK TO 2.5-FLASH (It connects)
+                # MODEL: 2.5 Flash (Reliable) + 8192 Tokens (No Cutoff)
                 model = genai.GenerativeModel(
                     'gemini-2.5-flash', 
                     generation_config={"temperature": 0.7, "max_output_tokens": 8192},
@@ -161,7 +149,6 @@ if check_password():
                 )
                 
                 safe_mgr = manager_name if manager_name else "The Management"
-                
                 base_context = f"You are {safe_mgr}, manager of {hotel_name} in {location}. Services: {services}. Voice: {brand_voice}. Review: '{user_review}'"
                 
                 if shorten_btn:
@@ -189,56 +176,50 @@ if check_password():
                     ALWAYS END WITH: "\n\n- {safe_mgr}"
                     """
 
-                with st.spinner("Consulting Brand Guidelines..."):
-                    # --- V6.4 FIX: SMART RETRY LOGIC ---
-                    response = generate_with_retry(model, prompt)
-                    
-                    # --- V6.4 FIX: PARTIAL TEXT RECOVERY ---
-                    final_text = ""
-                    
-                    # 1. Perfect Response
-                    if response.parts:
-                        final_text = response.text
-                        
-                    # 2. Cut-off Response (Recover what we have)
-                    elif response.candidates and response.candidates[0].content.parts:
-                        final_text = response.candidates[0].content.parts[0].text
-                        # Append a polite note instead of an error
-                        if response.candidates[0].finish_reason == 2:
-                            final_text += "..."
-                            
-                    # 3. Safety Block (Show Warning)
-                    elif response.prompt_feedback and response.prompt_feedback.block_reason:
-                        final_text = "🛡️ Brand Protection: Review content is too aggressive for standard reply."
-                    
-                    # 4. Fallback
-                    else:
-                        final_text = "⚠️ System Busy. Please click Generate again."
-                    
-                    st.session_state["current_reply"] = final_text
-                    
-                    if generate_btn and "⚠️" not in final_text and "🛡️" not in final_text:
-                        try:
-                            analysis = model.generate_content(f"Analyze: '{user_review}'. Return: Sentiment | Category").text
-                            st.session_state["analysis"] = analysis
-                        except:
-                            st.session_state["analysis"] = None
+                # --- V6.5 FIX: STREAMING (The Speed Hack) ---
+                # Instead of waiting for the full text, we show it word-by-word
+                
+                placeholder = st.empty() # Creates a temporary box
+                full_response = ""
+                
+                # stream=True starts sending data immediately
+                response_stream = model.generate_content(prompt, stream=True)
+                
+                for chunk in response_stream:
+                    if chunk.text:
+                        full_response += chunk.text
+                        # Live update the placeholder so user sees typing
+                        placeholder.markdown(full_response + "▌") 
+                
+                placeholder.empty() # Remove the temporary box
+                st.session_state["current_reply"] = full_response
+                
+                if generate_btn:
+                    try:
+                        analysis = model.generate_content(f"Analyze: '{user_review}'. Return: Sentiment | Category").text
+                        st.session_state["analysis"] = analysis
+                    except:
+                        st.session_state["analysis"] = None
 
             except Exception as e:
-                # Catch-all for network issues that survived retries
-                st.error("Network instability. Please try again in 5 seconds.")
+                # If streaming fails (rare), show a polite error but don't crash
+                if "safety" in str(e).lower():
+                    st.session_state["current_reply"] = "🛡️ Brand Protection: Review contains unsafe content."
+                else:
+                    st.error(f"Network Error: {str(e)}")
 
     if st.session_state["current_reply"]:
         st.divider()
         
-        if st.session_state["analysis"] and "⚠️" not in st.session_state["current_reply"] and "🛡️" not in st.session_state["current_reply"]:
+        if st.session_state["analysis"] and "🛡️" not in st.session_state["current_reply"]:
             st.info(f"📊 Analysis: **{st.session_state['analysis']}**")
 
         st.subheader("Draft Reply:")
         
-        if "⚠️" in st.session_state["current_reply"] or "🛡️" in st.session_state["current_reply"]:
+        if "🛡️" in st.session_state["current_reply"]:
              st.markdown(f"<div class='warning'>{st.session_state['current_reply']}</div>", unsafe_allow_html=True)
         else:
+            # Unique key ensures the box refreshes with the full text
             unique_key = f"box_{st.session_state['last_action']}_{time.time()}"
             st.text_area("Copy or Edit:", value=st.session_state["current_reply"], height=150, key=unique_key)
             
