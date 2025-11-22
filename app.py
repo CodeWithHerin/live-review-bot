@@ -6,55 +6,32 @@ from datetime import datetime
 import time
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="Review Reply Pro", page_icon="💎", layout="wide")
+st.set_page_config(page_title="Review Reply Pro", page_icon="💎", layout="wide", initial_sidebar_state="collapsed")
 
-# --- ULTIMATE CSS STYLING ---
+# --- ULTIMATE CSS STYLING (HIDE EVERYTHING & CLEAN UP) ---
 st.markdown("""
     <style>
-    /* 1. HIDE HAMBURGER MENU & FOOTER */
+    /* 1. HIDE ALL DEFAULT MENUS & BUTTONS */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
+    header {visibility: hidden;}
     
-    /* 2. HIDE RIGHT-SIDE TOOLBAR */
-    [data-testid="stToolbar"] {
-        visibility: hidden;
-        height: 0%;
-    }
-    
-    /* 3. HIDE DECORATION BAR */
-    [data-testid="stDecoration"] {
-        visibility: hidden;
-    }
-    
-    /* 4. HIDE BOTTOM MANAGE APP BUTTON (Specific Selector) */
-    .stAppDeployButton {display: none;}
+    /* 2. HIDE TOOLBARS & DECORATIONS */
+    [data-testid="stToolbar"] {visibility: hidden; height: 0%;}
+    [data-testid="stDecoration"] {visibility: hidden;}
     [data-testid="stStatusWidget"] {visibility: hidden;}
-    /* This targets the specific container for the 'Manage app' button */
-    div[data-testid="stToolbar"] + div {
-        visibility: hidden;
-    }
-    /* Target the viewer badge specifically */
-    .viewerBadge_container__1QSob {display: none !important;}
-    [data-testid="stManageAppButton"] {display: none !important;}
     
-    /* 5. ADJUST TOP PADDING */
+    /* 3. HIDE MANAGE APP BUTTON (Aggressive) */
+    .stAppDeployButton {display: none !important;}
+    [data-testid="stAppDeployButton"] {display: none !important;}
+    
+    /* 4. HIDE NATIVE SIDEBAR ARROW (We will use our own button) */
+    [data-testid="stSidebarCollapsedControl"] {display: none !important;}
+    
+    /* 5. ADJUST PADDING */
     .block-container {
-        padding-top: 3rem !important;
+        padding-top: 1rem !important;
         padding-bottom: 1rem !important;
-    }
-    
-    /* 6. ENSURE SIDEBAR TOGGLE IS VISIBLE */
-    [data-testid="stSidebarCollapsedControl"] {
-        visibility: visible !important;
-        display: block !important;
-        color: white !important;
-        z-index: 1000000 !important;
-        position: fixed;
-        top: 20px;
-        left: 20px;
-        background-color: rgba(255,255,255,0.1);
-        border-radius: 50%;
-        padding: 0.5rem;
     }
     
     /* GREEN BUTTONS */
@@ -167,7 +144,7 @@ if check_password():
     except Exception as e:
         st.error(f"Connection Error: {e}")
 
-    # --- SIDEBAR ---
+    # --- SIDEBAR (The Control Panel) ---
     with st.sidebar:
         st.success(f"👤 Agent: {st.session_state['user']}")
         st.divider()
@@ -186,11 +163,19 @@ if check_password():
             st.rerun()
 
     # --- MAIN UI ---
-    st.title("💎 Smart Review Responder")
-    
+    # CUSTOM LAYOUT: Title + Settings Button side-by-side
+    col_title, col_settings = st.columns([4, 1])
+    with col_title:
+        st.title("💎 Smart Review Responder")
+    with col_settings:
+        st.markdown("<br>", unsafe_allow_html=True)
+        # This is a 'fake' button that doesn't do logic but reminds them
+        # Since we can't programmatically open sidebar without hacks, we use a clear visual instruction
+        st.info("⬅ Open Sidebar for Settings")
+
     # VISUAL CUE
     if not hotel_name:
-        st.info("👉 **Start Here:** Click the Top-Left Arrow (>) to open the Sidebar.")
+        st.warning("⚠️ Please open the Sidebar (Top-Left) to enter Business Details.")
     else:
         st.markdown(f"Drafting for: **{hotel_name}**")
 
