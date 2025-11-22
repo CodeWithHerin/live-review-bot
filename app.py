@@ -15,7 +15,7 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     
-    /* 2. HIDE RIGHT-SIDE TOOLBAR (Share, Star, etc.) */
+    /* 2. HIDE RIGHT-SIDE TOOLBAR */
     [data-testid="stToolbar"] {
         visibility: hidden;
         height: 0%;
@@ -26,11 +26,18 @@ st.markdown("""
         visibility: hidden;
     }
     
-    /* 4. HIDE BOTTOM MANAGE APP BUTTON */
+    /* 4. HIDE BOTTOM MANAGE APP BUTTON (Specific Selector) */
     .stAppDeployButton {display: none;}
     [data-testid="stStatusWidget"] {visibility: hidden;}
+    /* This targets the specific container for the 'Manage app' button */
+    div[data-testid="stToolbar"] + div {
+        visibility: hidden;
+    }
+    /* Target the viewer badge specifically */
+    .viewerBadge_container__1QSob {display: none !important;}
+    [data-testid="stManageAppButton"] {display: none !important;}
     
-    /* 5. ADJUST TOP PADDING (So title isn't hidden) */
+    /* 5. ADJUST TOP PADDING */
     .block-container {
         padding-top: 3rem !important;
         padding-bottom: 1rem !important;
@@ -40,7 +47,14 @@ st.markdown("""
     [data-testid="stSidebarCollapsedControl"] {
         visibility: visible !important;
         display: block !important;
-        color: inherit !important;
+        color: white !important;
+        z-index: 1000000 !important;
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        background-color: rgba(255,255,255,0.1);
+        border-radius: 50%;
+        padding: 0.5rem;
     }
     
     /* GREEN BUTTONS */
@@ -174,9 +188,9 @@ if check_password():
     # --- MAIN UI ---
     st.title("💎 Smart Review Responder")
     
-    # VISUAL CUE (Just in case)
+    # VISUAL CUE
     if not hotel_name:
-        st.info("👉 **Start Here:** Open Sidebar (Top-Left) to enter details.")
+        st.info("👉 **Start Here:** Click the Top-Left Arrow (>) to open the Sidebar.")
     else:
         st.markdown(f"Drafting for: **{hotel_name}**")
 
