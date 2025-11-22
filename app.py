@@ -67,6 +67,18 @@ def update_client_info():
     st.session_state["srv"] = data["services"]
     st.session_state["mgr"] = data["owner"]
 
+def generate_with_retry(model, prompt, retries=3):
+    """Attempts to generate content multiple times if connection fails"""
+    last_error = None
+    for attempt in range(retries):
+        try:
+            response = model.generate_content(prompt)
+            return response
+        except Exception as e:
+            last_error = e
+            time.sleep(1 * (attempt + 1)) # Wait 1s, then 2s, then 3s
+    raise last_error
+
 # --- LOGIN ---
 def check_password():
     if "password_correct" not in st.session_state: st.session_state["password_correct"] = False
@@ -133,7 +145,7 @@ if check_password():
             try:
                 genai.configure(api_key=api_key)
                 
-                # --- SPEED & SAFETY CONFIG ---
+                # SAFETY: BLOCK_NONE (Allow everything)
                 safety_settings = {
                     HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
                     HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
@@ -141,10 +153,10 @@ if check_password():
                     HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
                 }
                 
-                # Using gemini-1.5-flash (FASTEST & MOST STABLE)
+                # BACK TO 2.5-FLASH (It connects)
                 model = genai.GenerativeModel(
-                    'gemini-1.5-flash', 
-                    generation_config={"temperature": 0.7, "max_output_tokens": 2000},
+                    'gemini-2.5-flash', 
+                    generation_config={"temperature": 0.7, "max_output_tokens": 8192},
                     safety_settings=safety_settings
                 )
                 
@@ -157,7 +169,7 @@ if check_password():
                     prompt = f"""
                     {base_context}
                     TASK: Write a VERY short reply (1-2 sentences MAX).
-                    RULES: Be direct. No fluff. 1 Emoji. Match Language.
+                    RULES: Be direct. No fluff phrases. 1 Emoji. Match Language.
                     ALWAYS END WITH: "\n\n- {safe_mgr}"
                     """
                 elif elaborate_btn:
@@ -178,32 +190,34 @@ if check_password():
                     """
 
                 with st.spinner("Consulting Brand Guidelines..."):
-                    # --- AUTO-RETRY LOGIC (The "Anti-Glitch" System) ---
-                    try:
-                        response = model.generate_content(prompt)
-                        final_text = ""
+                    # --- V6.4 FIX: SMART RETRY LOGIC ---
+                    response = generate_with_retry(model, prompt)
+                    
+                    # --- V6.4 FIX: PARTIAL TEXT RECOVERY ---
+                    final_text = ""
+                    
+                    # 1. Perfect Response
+                    if response.parts:
+                        final_text = response.text
                         
-                        if response.parts:
-                            final_text = response.text
-                        elif response.candidates and response.candidates[0].content.parts:
-                            final_text = response.candidates[0].content.parts[0].text
-                        elif response.prompt_feedback and response.prompt_feedback.block_reason:
-                            final_text = "🛡️ Brand Protection Alert: Unsafe content detected."
-                        else:
-                            # If first try fails silently, TRY AGAIN immediately (Invisible to user)
-                            time.sleep(0.5) 
-                            response = model.generate_content(prompt)
-                            if response.parts:
-                                final_text = response.text
-                            else:
-                                final_text = "⚠️ System Timeout. Please click Generate again."
-
-                        st.session_state["current_reply"] = final_text
-                        
-                    except Exception as inner_e:
-                        st.session_state["current_reply"] = "⚠️ Connection hiccup. Please click Generate again."
-
-                    if generate_btn and "⚠️" not in st.session_state["current_reply"]:
+                    # 2. Cut-off Response (Recover what we have)
+                    elif response.candidates and response.candidates[0].content.parts:
+                        final_text = response.candidates[0].content.parts[0].text
+                        # Append a polite note instead of an error
+                        if response.candidates[0].finish_reason == 2:
+                            final_text += "..."
+                            
+                    # 3. Safety Block (Show Warning)
+                    elif response.prompt_feedback and response.prompt_feedback.block_reason:
+                        final_text = "🛡️ Brand Protection: Review content is too aggressive for standard reply."
+                    
+                    # 4. Fallback
+                    else:
+                        final_text = "⚠️ System Busy. Please click Generate again."
+                    
+                    st.session_state["current_reply"] = final_text
+                    
+                    if generate_btn and "⚠️" not in final_text and "🛡️" not in final_text:
                         try:
                             analysis = model.generate_content(f"Analyze: '{user_review}'. Return: Sentiment | Category").text
                             st.session_state["analysis"] = analysis
@@ -211,7 +225,8 @@ if check_password():
                             st.session_state["analysis"] = None
 
             except Exception as e:
-                st.error(f"System Error: {str(e)}")
+                # Catch-all for network issues that survived retries
+                st.error("Network instability. Please try again in 5 seconds.")
 
     if st.session_state["current_reply"]:
         st.divider()
