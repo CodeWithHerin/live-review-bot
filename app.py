@@ -20,6 +20,7 @@ st.markdown("""
     div.stButton > button[kind="secondary"] { border: 1px solid #555; color: #eee; border-radius: 6px; }
     textarea { font-size: 1rem !important; font-family: sans-serif !important; }
     
+    /* Warning Box */
     .warning {
         padding: 15px;
         background-color: #FFF3CD;
@@ -104,7 +105,7 @@ if check_password():
         manager_name = st.text_input("Sign-off Name", key="mgr", placeholder="e.g. The Manager")
         st.divider()
         st.subheader("🎨 Brand Voice")
-        brand_voice = st.text_area("Describe Tone", value="Professional but conversational. Warm, like a real person talking.")
+        brand_voice = st.text_area("Describe Tone", value="Professional, Warm, and Concise")
         if hotel_name: st.caption("✅ Profile Active")
         if st.button("Log Out"):
             st.session_state["password_correct"] = False
@@ -141,10 +142,10 @@ if check_password():
                     HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
                 }
                 
-                # MODEL: 2.5 Flash (Reliable) + 8192 Tokens (No Cutoff)
+                # MODEL: 2.5 Flash (Reliable) + Temp 0.5 (Faster)
                 model = genai.GenerativeModel(
                     'gemini-2.5-flash', 
-                    generation_config={"temperature": 0.7, "max_output_tokens": 8192},
+                    generation_config={"temperature": 0.5, "max_output_tokens": 8192},
                     safety_settings=safety_settings
                 )
                 
@@ -176,33 +177,29 @@ if check_password():
                     ALWAYS END WITH: "\n\n- {safe_mgr}"
                     """
 
-                # --- V6.5 FIX: STREAMING (The Speed Hack) ---
-                # Instead of waiting for the full text, we show it word-by-word
-                
-                placeholder = st.empty() # Creates a temporary box
+                # --- V6.5 SPEED FIX: LIGHTWEIGHT STREAMING ---
+                placeholder = st.empty() # Lightweight container
                 full_response = ""
                 
-                # stream=True starts sending data immediately
                 response_stream = model.generate_content(prompt, stream=True)
                 
                 for chunk in response_stream:
                     if chunk.text:
                         full_response += chunk.text
-                        # Live update the placeholder so user sees typing
                         placeholder.markdown(full_response + "▌") 
                 
-                placeholder.empty() # Remove the temporary box
+                placeholder.empty() # Swap it out
                 st.session_state["current_reply"] = full_response
                 
                 if generate_btn:
                     try:
+                        # Analysis runs in background, doesn't block text
                         analysis = model.generate_content(f"Analyze: '{user_review}'. Return: Sentiment | Category").text
                         st.session_state["analysis"] = analysis
                     except:
                         st.session_state["analysis"] = None
 
             except Exception as e:
-                # If streaming fails (rare), show a polite error but don't crash
                 if "safety" in str(e).lower():
                     st.session_state["current_reply"] = "🛡️ Brand Protection: Review contains unsafe content."
                 else:
@@ -219,7 +216,6 @@ if check_password():
         if "🛡️" in st.session_state["current_reply"]:
              st.markdown(f"<div class='warning'>{st.session_state['current_reply']}</div>", unsafe_allow_html=True)
         else:
-            # Unique key ensures the box refreshes with the full text
             unique_key = f"box_{st.session_state['last_action']}_{time.time()}"
             st.text_area("Copy or Edit:", value=st.session_state["current_reply"], height=150, key=unique_key)
             
