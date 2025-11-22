@@ -134,8 +134,8 @@ if check_password():
             try:
                 genai.configure(api_key=api_key)
                 
-                # --- V6.0 FIX: THE NUCLEAR SAFETY OPTION ---
-                # We explicitly turn OFF all filters so the AI won't block bad reviews.
+                # --- FIX 1: SWITCH TO 1.5 FLASH (STABLE) & MAX TOKENS (8192) ---
+                # This ensures it NEVER runs out of space
                 safety_settings = {
                     HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
                     HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
@@ -143,10 +143,9 @@ if check_password():
                     HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
                 }
                 
-                # Using 2.5-flash with 1000 tokens (Safe & Fast)
                 model = genai.GenerativeModel(
-                    'gemini-2.5-flash', 
-                    generation_config={"temperature": 0.7, "max_output_tokens": 1000},
+                    'gemini-1.5-flash', 
+                    generation_config={"temperature": 0.7, "max_output_tokens": 8192},
                     safety_settings=safety_settings
                 )
                 
@@ -158,8 +157,8 @@ if check_password():
                     st.session_state["last_action"] = "short" 
                     prompt = f"""
                     {base_context}
-                    TASK: Write a punchy reply (1-2 sentences).
-                    RULES: No fluff. Address point. 1 Emoji. Match Language.
+                    TASK: Write a VERY short reply (1-2 sentences MAX).
+                    RULES: Be direct. No fluff phrases. 1 Emoji. Match Language.
                     ALWAYS END WITH: "\n\n- {safe_mgr}"
                     """
                 elif elaborate_btn:
@@ -167,7 +166,7 @@ if check_password():
                     prompt = f"""
                     {base_context}
                     TASK: Write a detailed, empathetic reply (4-5 sentences).
-                    RULES: Validate feelings. Explain gently. 2 Emojis. Match Language.
+                    RULES: Validate feelings. Explain gently. Invite back. 2 Emojis. Match Language.
                     ALWAYS END WITH: "\n\n- {safe_mgr}"
                     """
                 else:
@@ -182,28 +181,22 @@ if check_password():
                 with st.spinner("Consulting Brand Guidelines..."):
                     response = model.generate_content(prompt)
                     
-                    # --- V6.0 FIX: ROBUST ERROR HANDLING ---
+                    # --- FIX 2: FAIL-SAFE EXTRACTION ---
                     final_text = ""
                     
-                    # Case 1: Everything worked
-                    if response.candidates and response.candidates[0].content.parts:
+                    if response.parts:
+                        final_text = response.text
+                    elif response.candidates and response.candidates[0].content.parts:
                         final_text = response.candidates[0].content.parts[0].text
-                    
-                    # Case 2: It was blocked despite our settings (Rare)
                     elif response.prompt_feedback and response.prompt_feedback.block_reason:
-                        final_text = "⚠️ Brand Protection: This review is too toxic for the AI to handle safely."
-                    
-                    # Case 3: It ran out of breath
-                    elif response.candidates and response.candidates[0].finish_reason == 2:
-                        final_text = "⚠️ Error: Reply too long. Try 'Make Conciser'."
-                        
+                        final_text = "🛡️ Brand Protection Alert: This review contains unsafe content. Please remove profanity."
                     else:
-                        final_text = "⚠️ System Error. Please try again."
+                        # Fallback if something truly weird happens
+                        final_text = "⚠️ System Timeout. Please click 'Generate' again."
                     
                     st.session_state["current_reply"] = final_text
                     
-                    # Analyze only if text exists and is not an error
-                    if generate_btn and "⚠️" not in final_text:
+                    if generate_btn and "⚠️" not in final_text and "🛡️" not in final_text:
                         try:
                             analysis = model.generate_content(f"Analyze: '{user_review}'. Return: Sentiment | Category").text
                             st.session_state["analysis"] = analysis
@@ -216,14 +209,12 @@ if check_password():
     if st.session_state["current_reply"]:
         st.divider()
         
-        # Hide analysis if there's an error message
-        if st.session_state["analysis"] and "⚠️" not in st.session_state["current_reply"]:
+        if st.session_state["analysis"] and "⚠️" not in st.session_state["current_reply"] and "🛡️" not in st.session_state["current_reply"]:
             st.info(f"📊 Analysis: **{st.session_state['analysis']}**")
 
         st.subheader("Draft Reply:")
         
-        # Handle the error box display vs normal text box
-        if "⚠️" in st.session_state["current_reply"]:
+        if "⚠️" in st.session_state["current_reply"] or "🛡️" in st.session_state["current_reply"]:
              st.markdown(f"<div class='warning'>{st.session_state['current_reply']}</div>", unsafe_allow_html=True)
         else:
             unique_key = f"box_{st.session_state['last_action']}_{time.time()}"
