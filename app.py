@@ -20,7 +20,6 @@ st.markdown("""
     div.stButton > button[kind="secondary"] { border: 1px solid #555; color: #eee; border-radius: 6px; }
     textarea { font-size: 1rem !important; font-family: sans-serif !important; }
     
-    /* Warning Box for Safety Blocks */
     .warning {
         padding: 15px;
         background-color: #FFF3CD;
@@ -134,7 +133,7 @@ if check_password():
             try:
                 genai.configure(api_key=api_key)
                 
-                # --- NUCLEAR SAFETY & LIMITS ---
+                # --- SPEED & SAFETY CONFIG ---
                 safety_settings = {
                     HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
                     HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
@@ -142,10 +141,10 @@ if check_password():
                     HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
                 }
                 
-                # Back to 2.5-Flash (It works) + 8192 Tokens (Infinite budget)
+                # Using gemini-1.5-flash (FASTEST & MOST STABLE)
                 model = genai.GenerativeModel(
-                    'gemini-2.5-flash', 
-                    generation_config={"temperature": 0.7, "max_output_tokens": 8192},
+                    'gemini-1.5-flash', 
+                    generation_config={"temperature": 0.7, "max_output_tokens": 2000},
                     safety_settings=safety_settings
                 )
                 
@@ -158,7 +157,7 @@ if check_password():
                     prompt = f"""
                     {base_context}
                     TASK: Write a VERY short reply (1-2 sentences MAX).
-                    RULES: Be direct. No fluff phrases. 1 Emoji. Match Language.
+                    RULES: Be direct. No fluff. 1 Emoji. Match Language.
                     ALWAYS END WITH: "\n\n- {safe_mgr}"
                     """
                 elif elaborate_btn:
@@ -179,31 +178,32 @@ if check_password():
                     """
 
                 with st.spinner("Consulting Brand Guidelines..."):
-                    response = model.generate_content(prompt)
-                    
-                    # --- V6.2 FIX: FORCE SHOW CONTENT ---
-                    final_text = ""
-                    
-                    # Check 1: Is there text?
-                    if response.parts:
-                        final_text = response.text
+                    # --- AUTO-RETRY LOGIC (The "Anti-Glitch" System) ---
+                    try:
+                        response = model.generate_content(prompt)
+                        final_text = ""
                         
-                    # Check 2: Is there a candidate with text? (Even if incomplete)
-                    elif response.candidates and response.candidates[0].content.parts:
-                        final_text = response.candidates[0].content.parts[0].text
-                        if response.candidates[0].finish_reason == 2:
-                            final_text += "\n\n(Note: Reply cut off slightly, but here is the draft)"
-                            
-                    # Check 3: Safety Block (Show Clean Warning)
-                    elif response.prompt_feedback and response.prompt_feedback.block_reason:
-                        final_text = "🛡️ Brand Protection Alert: Review contains unsafe language."
+                        if response.parts:
+                            final_text = response.text
+                        elif response.candidates and response.candidates[0].content.parts:
+                            final_text = response.candidates[0].content.parts[0].text
+                        elif response.prompt_feedback and response.prompt_feedback.block_reason:
+                            final_text = "🛡️ Brand Protection Alert: Unsafe content detected."
+                        else:
+                            # If first try fails silently, TRY AGAIN immediately (Invisible to user)
+                            time.sleep(0.5) 
+                            response = model.generate_content(prompt)
+                            if response.parts:
+                                final_text = response.text
+                            else:
+                                final_text = "⚠️ System Timeout. Please click Generate again."
+
+                        st.session_state["current_reply"] = final_text
                         
-                    else:
-                        final_text = "⚠️ AI did not return text. Please try again."
-                    
-                    st.session_state["current_reply"] = final_text
-                    
-                    if generate_btn and "⚠️" not in final_text and "🛡️" not in final_text:
+                    except Exception as inner_e:
+                        st.session_state["current_reply"] = "⚠️ Connection hiccup. Please click Generate again."
+
+                    if generate_btn and "⚠️" not in st.session_state["current_reply"]:
                         try:
                             analysis = model.generate_content(f"Analyze: '{user_review}'. Return: Sentiment | Category").text
                             st.session_state["analysis"] = analysis
