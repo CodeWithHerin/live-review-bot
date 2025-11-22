@@ -1,5 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
 import pandas as pd
 from datetime import datetime
 import time
@@ -18,6 +19,16 @@ st.markdown("""
     div.stButton > button[kind="primary"]:hover { background-color: #1B5E20; }
     div.stButton > button[kind="secondary"] { border: 1px solid #555; color: #eee; border-radius: 6px; }
     textarea { font-size: 1rem !important; font-family: sans-serif !important; }
+    
+    /* Custom Warning Box */
+    .warning-box {
+        padding: 1rem;
+        background-color: #fff3cd;
+        color: #856404;
+        border-radius: 0.5rem;
+        border: 1px solid #ffeeba;
+        margin-bottom: 1rem;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -44,14 +55,12 @@ if "current_reply" not in st.session_state: st.session_state["current_reply"] = 
 if "analysis" not in st.session_state: st.session_state["analysis"] = None
 if "last_action" not in st.session_state: st.session_state["last_action"] = None
 
-# --- HELPERS ---
+# --- HELPER FUNCTIONS ---
 def clear_text_box():
-    """Forces the text box to reset so new text appears instantly"""
     if "final_output_box" in st.session_state: 
         del st.session_state["final_output_box"]
 
 def update_client_info():
-    """Updates the sidebar inputs when dropdown changes"""
     selected = st.session_state["selected_client_dropdown"]
     data = CLIENT_PRESETS[selected]
     st.session_state["h_name"] = data["name"]
@@ -125,17 +134,15 @@ if check_password():
             try:
                 genai.configure(api_key=api_key)
                 
-                # --- UPGRADE TO GEMINI 2.5 FLASH ---
-                # Max Tokens 1000 is safe for 2.5
-                # Safety settings to BLOCK_NONE to avoid false positives
-                safety_settings = [
-                    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-                    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-                    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-                    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-                ]
+                # --- FIX 1: STRICT SAFETY SETTINGS ---
+                # We use the official library Types to ensure BLOCK_NONE works
+                safety_settings = {
+                    HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+                    HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+                    HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+                    HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+                }
                 
-                # Using 'gemini-2.5-flash' specifically
                 model = genai.GenerativeModel(
                     'gemini-2.5-flash', 
                     generation_config={"temperature": 0.7, "max_output_tokens": 1000},
@@ -174,21 +181,30 @@ if check_password():
                 with st.spinner("Consulting Brand Guidelines..."):
                     response = model.generate_content(prompt)
                     
-                    # Safe Extraction Logic
+                    # --- FIX 2: BRAND PROTECTION MESSAGE ---
                     final_text = ""
-                    if response.candidates:
+                    
+                    # Check if the response was blocked
+                    if response.prompt_feedback and response.prompt_feedback.block_reason:
+                         final_text = "🛡️ Brand Protection Alert: The review content was flagged as unsafe. Please remove profanity and try again."
+                    elif response.candidates:
                         candidate = response.candidates[0]
                         if candidate.content and candidate.content.parts:
                             final_text = candidate.content.parts[0].text
+                        elif candidate.finish_reason == 3: # SAFETY
+                            final_text = "🛡️ Brand Protection Alert: This review triggered safety filters. Please simplify the text."
+                        elif candidate.finish_reason == 2: # MAX TOKENS
+                            final_text = "⚠️ Response too long. Please try 'Make Conciser'."
                         else:
-                            final_text = "⚠️ Error: AI safety block. Try rewording."
+                            final_text = "⚠️ Unknown Error. Please try again."
+                    else:
+                        final_text = "⚠️ Connection Error. Please try again."
                     
                     st.session_state["current_reply"] = final_text
                     
-                    if generate_btn and final_text:
+                    if generate_btn and "Brand Protection" not in final_text:
                         try:
-                            analysis_prompt = f"Analyze review: '{user_review}'. Return string: Sentiment | Category"
-                            analysis = model.generate_content(analysis_prompt).text
+                            analysis = model.generate_content(f"Analyze: '{user_review}'. Return: Sentiment | Category").text
                             st.session_state["analysis"] = analysis
                         except:
                             st.session_state["analysis"] = "Analysis Unavailable"
@@ -198,22 +214,27 @@ if check_password():
 
     if st.session_state["current_reply"]:
         st.divider()
-        if st.session_state["analysis"]:
+        
+        # Show Analysis only if valid
+        if st.session_state["analysis"] and "Brand Protection" not in st.session_state["current_reply"]:
             st.info(f"📊 Analysis: **{st.session_state['analysis']}**")
 
         st.subheader("Draft Reply:")
         
-        # Using time-based key to force refresh
         unique_key = f"box_{st.session_state['last_action']}_{time.time()}"
         
-        st.text_area("Copy or Edit:", value=st.session_state["current_reply"], height=150, key=unique_key)
-        
-        if st.button("💾 Save to History"):
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-            st.session_state["history"].append({
-                "Date": timestamp, "Client": hotel_name, "Review": user_review[:50] + "...", "Reply": st.session_state["current_reply"]
-            })
-            st.success("Saved!")
+        # Color code the error message if it appears
+        if "Brand Protection" in st.session_state["current_reply"]:
+             st.markdown(f"<div class='warning-box'>{st.session_state['current_reply']}</div>", unsafe_allow_html=True)
+        else:
+            st.text_area("Copy or Edit:", value=st.session_state["current_reply"], height=150, key=unique_key)
+            
+            if st.button("💾 Save to History"):
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+                st.session_state["history"].append({
+                    "Date": timestamp, "Client": hotel_name, "Review": user_review[:50] + "...", "Reply": st.session_state["current_reply"]
+                })
+                st.success("Saved!")
 
     st.divider()
     with st.expander("📜 View Session History"):
