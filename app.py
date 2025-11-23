@@ -20,9 +20,9 @@ st.markdown("""
     /* 2. Background */
     .stApp {background-color: #0E1117;}
     
-    /* 3. GREEN BUTTONS (Targeting Form Submit specifically too) */
+    /* 3. GREEN BUTTONS (Targeting Form Submit & Primary Buttons) */
     div.stButton > button[kind="primary"],
-    div.stFormSubmitButton > button[kind="primary"] {
+    button[kind="primary"] {
         background-color: #2E7D32 !important; 
         color: white !important; 
         border: none !important; 
@@ -31,7 +31,7 @@ st.markdown("""
         width: 100%;
     }
     div.stButton > button[kind="primary"]:hover,
-    div.stFormSubmitButton > button[kind="primary"]:hover { 
+    button[kind="primary"]:hover { 
         background-color: #1B5E20 !important; 
     }
     
@@ -121,7 +121,7 @@ def setup_screen():
         h_mgr = st.text_input("Manager Name", value=defaults.get("manager_name", ""))
         h_voice = st.text_area("Brand Voice", value=defaults.get("brand_voice", "Professional, Warm, and Concise"))
         
-        # This button will now be GREEN due to the CSS fix
+        # CSS hack above ensures this button is GREEN
         submitted = st.form_submit_button("Save & Continue", type="primary")
         
         if submitted:
@@ -150,6 +150,7 @@ def dashboard_screen():
         st.subheader(f"Drafting for: {settings['hotel_name']}")
     with c2:
         if st.button("⚙️ Edit Profile"):
+            # This forces the setup screen to reappear with pre-filled data
             st.session_state["user_settings"]["hotel_name"] = "" 
             st.rerun()
 
