@@ -36,6 +36,20 @@ st.markdown("""
         border-radius: 5px; border: 1px solid #FFEEBA; margin-bottom: 10px;
     }
     </style>
+    
+    <script>
+    // Aggressive Manage Button Killer
+    setInterval(function() {
+        const buttons = window.parent.document.querySelectorAll('button');
+        buttons.forEach(btn => {
+            if (btn.innerText.includes("Manage app") || btn.innerText.includes("Deploy")) {
+                btn.style.display = 'none';
+            }
+        });
+        const footer = window.parent.document.querySelector('footer');
+        if (footer) footer.style.display = 'none';
+    }, 500);
+    </script>
     """, unsafe_allow_html=True)
 
 # --- SESSION STATE INIT ---
