@@ -6,10 +6,10 @@ from datetime import datetime
 import pytz
 import time
 
-# --- PAGE CONFIG (CENTERED = BETTER LAYOUT) ---
+# --- PAGE CONFIG ---
 st.set_page_config(page_title="Review Reply Pro", page_icon="💎", layout="centered")
 
-# --- CSS CLEANUP & STYLING ---
+# --- CSS CLEANUP (Mobile Optimized) ---
 st.markdown("""
     <style>
     /* 1. Hide Streamlit Chrome */
@@ -20,9 +20,15 @@ st.markdown("""
     /* 2. Background */
     .stApp {background-color: #0E1117;}
     
-    /* 3. GREEN BUTTONS (Targeting Form Submit & Primary Buttons) */
+    /* 3. Adjust Top Padding for Mobile & Desktop */
+    .block-container {
+        padding-top: 3rem !important; /* Gives space from top bar */
+        padding-bottom: 1rem !important;
+    }
+    
+    /* 4. GREEN BUTTONS (Universal Fix) */
     div.stButton > button[kind="primary"],
-    button[kind="primary"] {
+    div.stFormSubmitButton > button[kind="primary"] {
         background-color: #2E7D32 !important; 
         color: white !important; 
         border: none !important; 
@@ -31,19 +37,19 @@ st.markdown("""
         width: 100%;
     }
     div.stButton > button[kind="primary"]:hover,
-    button[kind="primary"]:hover { 
+    div.stFormSubmitButton > button[kind="primary"]:hover { 
         background-color: #1B5E20 !important; 
     }
     
-    /* 4. SECONDARY BUTTONS */
+    /* 5. SECONDARY BUTTONS */
     div.stButton > button[kind="secondary"] {
         border: 1px solid #555; color: #eee; border-radius: 6px; width: 100%;
     }
     
-    /* 5. INPUT FIELDS */
+    /* 6. INPUT FIELDS */
     input, textarea { border-radius: 6px !important; }
     
-    /* 6. WARNING BOX */
+    /* 7. WARNING BOX */
     .warning-box {
         padding: 1rem; background-color: #FFF3CD; color: #856404;
         border-radius: 5px; border: 1px solid #FFEEBA; margin-bottom: 10px;
@@ -51,7 +57,7 @@ st.markdown("""
     </style>
     
     <script>
-    // Aggressive JS to remove 'Manage App' & Toolbar
+    // Aggressive JS to remove 'Manage App'
     setInterval(function() {
         const buttons = window.parent.document.querySelectorAll('button');
         buttons.forEach(btn => {
@@ -92,9 +98,12 @@ def get_model(api_key):
 # --- SCREENS ---
 
 def login_screen():
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    c1, c2, c3 = st.columns([1, 3, 1]) # Centered column
-    with c2:
+    # Added extra break for visual spacing
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Use columns to center the login box perfectly
+    _, col, _ = st.columns([1, 6, 1]) 
+    with col:
         st.title("💎 Login")
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
@@ -108,7 +117,6 @@ def login_screen():
                 st.error("⛔ Access Denied")
 
 def setup_screen():
-    # Centered Layout for Setup (No columns needed due to page config)
     st.title("🛠️ Business Setup")
     st.info("Configure your business details to start.")
     
@@ -121,7 +129,7 @@ def setup_screen():
         h_mgr = st.text_input("Manager Name", value=defaults.get("manager_name", ""))
         h_voice = st.text_area("Brand Voice", value=defaults.get("brand_voice", "Professional, Warm, and Concise"))
         
-        # CSS hack above ensures this button is GREEN
+        # GREEN BUTTON
         submitted = st.form_submit_button("Save & Continue", type="primary")
         
         if submitted:
@@ -144,20 +152,19 @@ def dashboard_screen():
     else:
         api_key = st.text_input("Enter API Key", type="password")
 
-    # Header Area
+    # Header Area with Edit Button
     c1, c2 = st.columns([4, 1])
     with c1:
         st.subheader(f"Drafting for: {settings['hotel_name']}")
     with c2:
         if st.button("⚙️ Edit Profile"):
-            # This forces the setup screen to reappear with pre-filled data
             st.session_state["user_settings"]["hotel_name"] = "" 
             st.rerun()
 
     user_review = st.text_area("Paste Customer Review:", height=150)
 
-    # Buttons are now close together because layout="centered"
-    c1, c2, c3 = st.columns(3)
+    # Tightly packed buttons for mobile friendly view
+    c1, c2, c3 = st.columns([1, 1, 1])
     with c1: gen_btn = st.button("✨ Generate", type="primary")
     with c2: short_btn = st.button("✂️ Shorten")
     with c3: detail_btn = st.button("✍️ Expand")
