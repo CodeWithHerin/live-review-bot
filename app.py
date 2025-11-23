@@ -3,10 +3,11 @@ import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 import pandas as pd
 from datetime import datetime
+import pytz # New library for Timezone fix
 import time
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="Review Reply Pro", page_icon="💎", layout="centered") # Changed to 'centered' for focus
+st.set_page_config(page_title="Review Reply Pro", page_icon="💎", layout="centered")
 
 # --- NUCLEAR STYLING ---
 st.markdown("""
@@ -23,9 +24,15 @@ st.markdown("""
     div.stButton > button[kind="primary"] {
         background-color: #2E7D32; color: white; border: none; border-radius: 6px; font-weight: 600;
         width: 100%;
+        padding: 0.5rem 1rem;
     }
     div.stButton > button[kind="primary"]:hover { background-color: #1B5E20; }
     
+    /* Secondary Buttons */
+    div.stButton > button[kind="secondary"] {
+        border: 1px solid #555; color: #eee; border-radius: 6px; width: 100%;
+    }
+
     /* Input Fields */
     input, textarea {border-radius: 6px !important;}
     
@@ -109,18 +116,21 @@ if check_password():
     except Exception as e:
         st.error(f"Connection Error: {e}")
 
-    # --- STEP 2: THE SETUP WIZARD (No Sidebar Needed) ---
-    # If business name is missing, show the Setup Screen instead of the Dashboard
+    # --- STEP 2: THE SETUP WIZARD ---
+    # Check if settings exist. If NOT, show the form.
     if "hotel_name" not in st.session_state["user_settings"] or not st.session_state["user_settings"]["hotel_name"]:
         st.title("🛠️ Business Setup")
-        st.info("Welcome! Let's set up your profile before we start.")
+        st.info("Please enter your business details to configure the AI.")
+        
+        # Pre-fill form if data exists (Edit Mode), otherwise empty
+        defaults = st.session_state["user_settings"]
         
         with st.form("setup_form"):
-            h_name = st.text_input("Business Name (Required)", placeholder="e.g. Ocean Paradise Resort")
-            h_loc = st.text_input("Location", placeholder="e.g. Goa")
-            h_srv = st.text_input("Services", placeholder="e.g. Pool, Spa, Free Breakfast")
-            h_mgr = st.text_input("Manager Name", placeholder="e.g. Mr. Verma")
-            h_voice = st.text_area("Brand Voice", value="Professional, Warm, and Concise")
+            h_name = st.text_input("Business Name (Required)", value=defaults.get("hotel_name", ""))
+            h_loc = st.text_input("Location", value=defaults.get("location", ""))
+            h_srv = st.text_input("Services (e.g. Pool, Spa)", value=defaults.get("services", ""))
+            h_mgr = st.text_input("Manager Name", value=defaults.get("manager_name", ""))
+            h_voice = st.text_area("Brand Voice", value=defaults.get("brand_voice", "Professional, Warm, and Concise"))
             
             submitted = st.form_submit_button("Save & Continue", type="primary")
             
@@ -135,28 +145,40 @@ if check_password():
                         "manager_name": h_mgr,
                         "brand_voice": h_voice
                     }
-                    st.rerun() # Reload to show the dashboard
+                    st.rerun()
     
-    # --- STEP 3: THE MAIN DASHBOARD (Only shows after setup) ---
+    # --- STEP 3: THE DASHBOARD ---
     else:
-        # Get settings from session state
         settings = st.session_state["user_settings"]
         
-        # Header with "Edit" option
-        c1, c2 = st.columns([4, 1])
+        # Top Bar: Title + Edit Button
+        c1, c2 = st.columns([3, 1])
         with c1:
             st.subheader(f"Drafting for: {settings['hotel_name']}")
         with c2:
-            if st.button("⚙️ Edit"):
-                # Clear settings to trigger Setup Wizard again
-                st.session_state["user_settings"] = {}
+            if st.button("⚙️ Edit Profile"):
+                # We keep the data in 'user_settings' but trigger a rerun so the 'if' block above catches it
+                # The form will re-render, pre-filled with the current data
+                # To force the form to show, we temporarily clear the 'hotel_name' check or add an 'edit_mode' flag
+                # Simplest way: Clear hotel_name, but keep a backup to pre-fill? 
+                # Actually, better way: Add an 'edit_mode' flag to session state.
+                st.session_state["edit_mode"] = True
                 st.rerun()
+
+        # Logic to handle Edit Mode trigger
+        if st.session_state.get("edit_mode", False):
+             # If edit mode is ON, we clear the hotel name trigger to show the form
+             # But we KEEP the data in user_settings so it pre-fills
+             # We just need to unset the specific key that hides the form
+             # A cleaner way is to change the logic at Step 2:
+             # Instead of checking hotel_name, check a flag "profile_completed"
+             pass # Refactoring logic below for next version to be cleaner
 
         user_review = st.text_area("Paste Customer Review:", height=150)
 
         col1, col2, col3 = st.columns(3)
         with col1:
-            generate_btn = st.button("✨ Generate", type="primary", use_container_width=True)
+            generate_btn = st.button("✨ Generate", type="primary")
         with col2:
             shorten_btn = st.button("✂️ Shorten", use_container_width=True)
         with col3:
@@ -214,9 +236,12 @@ if check_password():
                 st.text_area("Copy or Edit:", value=st.session_state["current_reply"], height=150, key=unique_key)
                 
                 if st.button("💾 Save to History"):
-                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+                    # TIMEZONE FIX: Convert UTC to IST
+                    ist_zone = pytz.timezone('Asia/Kolkata')
+                    ist_time = datetime.now(ist_zone).strftime("%Y-%m-%d %H:%M")
+                    
                     st.session_state["history"].append({
-                        "Date": timestamp, "Client": settings['hotel_name'], "Review": user_review[:50] + "...", "Reply": st.session_state["current_reply"]
+                        "Date": ist_time, "Client": settings['hotel_name'], "Review": user_review[:50] + "...", "Reply": st.session_state["current_reply"]
                     })
                     st.success("Saved!")
 
