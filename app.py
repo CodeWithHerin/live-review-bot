@@ -6,31 +6,44 @@ from datetime import datetime
 import pytz
 import time
 
-# --- PAGE CONFIG ---
-st.set_page_config(page_title="Review Reply Pro", page_icon="💎", layout="wide")
+# --- PAGE CONFIG (CENTERED = BETTER LAYOUT) ---
+st.set_page_config(page_title="Review Reply Pro", page_icon="💎", layout="centered")
 
-# --- CSS CLEANUP (Safe Mode) ---
+# --- CSS CLEANUP & STYLING ---
 st.markdown("""
     <style>
-    /* Hide Hamburger Menu & Footer */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
+    /* 1. Hide Streamlit Chrome */
+    #MainMenu, footer, header {visibility: hidden;}
+    [data-testid="stToolbar"], [data-testid="stDecoration"], [data-testid="stStatusWidget"] {visibility: hidden;}
+    .stAppDeployButton {display: none !important;}
     
-    /* Green Primary Button */
-    div.stButton > button[kind="primary"] {
-        background-color: #2E7D32; color: white; border: none; border-radius: 6px; font-weight: 600; width: 100%;
+    /* 2. Background */
+    .stApp {background-color: #0E1117;}
+    
+    /* 3. GREEN BUTTONS (Targeting Form Submit specifically too) */
+    div.stButton > button[kind="primary"],
+    div.stFormSubmitButton > button[kind="primary"] {
+        background-color: #2E7D32 !important; 
+        color: white !important; 
+        border: none !important; 
+        border-radius: 6px !important; 
+        font-weight: 600 !important; 
+        width: 100%;
     }
-    div.stButton > button[kind="primary"]:hover { background-color: #1B5E20; }
+    div.stButton > button[kind="primary"]:hover,
+    div.stFormSubmitButton > button[kind="primary"]:hover { 
+        background-color: #1B5E20 !important; 
+    }
     
-    /* Secondary Button */
+    /* 4. SECONDARY BUTTONS */
     div.stButton > button[kind="secondary"] {
         border: 1px solid #555; color: #eee; border-radius: 6px; width: 100%;
     }
     
-    /* Input Fields */
+    /* 5. INPUT FIELDS */
     input, textarea { border-radius: 6px !important; }
     
-    /* Warning Box */
+    /* 6. WARNING BOX */
     .warning-box {
         padding: 1rem; background-color: #FFF3CD; color: #856404;
         border-radius: 5px; border: 1px solid #FFEEBA; margin-bottom: 10px;
@@ -38,16 +51,16 @@ st.markdown("""
     </style>
     
     <script>
-    // Aggressive Manage Button Killer
+    // Aggressive JS to remove 'Manage App' & Toolbar
     setInterval(function() {
         const buttons = window.parent.document.querySelectorAll('button');
         buttons.forEach(btn => {
-            if (btn.innerText.includes("Manage app") || btn.innerText.includes("Deploy")) {
+            if (btn.innerText.includes("Manage app") || btn.innerText.includes("Deploy") || btn.innerText.includes("Share")) {
                 btn.style.display = 'none';
             }
         });
-        const footer = window.parent.document.querySelector('footer');
-        if (footer) footer.style.display = 'none';
+        const toolbar = window.parent.document.querySelector('[data-testid="stToolbar"]');
+        if (toolbar) toolbar.remove();
     }, 500);
     </script>
     """, unsafe_allow_html=True)
@@ -76,12 +89,12 @@ def get_model(api_key):
         safety_settings=safety_settings
     )
 
-# --- APP LOGIC ---
+# --- SCREENS ---
 
 def login_screen():
-    c1, c2, c3 = st.columns([1, 2, 1])
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    c1, c2, c3 = st.columns([1, 3, 1]) # Centered column
     with c2:
-        st.markdown("<br><br>", unsafe_allow_html=True)
         st.title("💎 Login")
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
@@ -95,8 +108,9 @@ def login_screen():
                 st.error("⛔ Access Denied")
 
 def setup_screen():
+    # Centered Layout for Setup (No columns needed due to page config)
     st.title("🛠️ Business Setup")
-    st.info("Please configure your business details to start.")
+    st.info("Configure your business details to start.")
     
     defaults = st.session_state["user_settings"]
     
@@ -107,7 +121,10 @@ def setup_screen():
         h_mgr = st.text_input("Manager Name", value=defaults.get("manager_name", ""))
         h_voice = st.text_area("Brand Voice", value=defaults.get("brand_voice", "Professional, Warm, and Concise"))
         
-        if st.form_submit_button("Save & Continue", type="primary"):
+        # This button will now be GREEN due to the CSS fix
+        submitted = st.form_submit_button("Save & Continue", type="primary")
+        
+        if submitted:
             if not h_name:
                 st.error("Business Name is required.")
             else:
@@ -127,18 +144,18 @@ def dashboard_screen():
     else:
         api_key = st.text_input("Enter API Key", type="password")
 
-    # Header
-    c1, c2 = st.columns([6, 1])
+    # Header Area
+    c1, c2 = st.columns([4, 1])
     with c1:
-        st.markdown(f"### 💎 Drafting for: **{settings['hotel_name']}**")
+        st.subheader(f"Drafting for: {settings['hotel_name']}")
     with c2:
-        if st.button("⚙️ Edit"):
-            # Clear ONLY the flag that shows dashboard, keep data for pre-fill
+        if st.button("⚙️ Edit Profile"):
             st.session_state["user_settings"]["hotel_name"] = "" 
             st.rerun()
 
     user_review = st.text_area("Paste Customer Review:", height=150)
 
+    # Buttons are now close together because layout="centered"
     c1, c2, c3 = st.columns(3)
     with c1: gen_btn = st.button("✨ Generate", type="primary")
     with c2: short_btn = st.button("✂️ Shorten")
@@ -168,7 +185,6 @@ def dashboard_screen():
                 with st.spinner("Drafting..."):
                     response = model.generate_content(prompt)
                     
-                    # Robust Text Extraction
                     final_text = ""
                     if response.parts: final_text = response.text
                     elif response.candidates and response.candidates[0].content.parts:
@@ -223,7 +239,6 @@ def dashboard_screen():
 if not st.session_state["logged_in"]:
     login_screen()
 else:
-    # Check if settings are populated
     if "hotel_name" not in st.session_state["user_settings"] or not st.session_state["user_settings"]["hotel_name"]:
         setup_screen()
     else:
